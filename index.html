@@ -34,9 +34,6 @@
   .identity-summary.not-found { background: #fbeee8; color: var(--danger); }
   .manual-box { margin-top: 6px; padding: 14px 14px 4px; border: 1.5px dashed var(--accent); border-radius: 10px; }
   .manual-hint { margin: 0 0 4px; font-size: 13.5px; color: var(--accent); font-weight: 700; }
-  .verify-msg { font-size: 13px; margin-top: 6px; min-height: 18px; }
-  .verify-msg.ok { color: var(--brand-dark); }
-  .verify-msg.bad { color: var(--danger); }
   .mode-select { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .back-level { display: inline-block; font-size: 13px; color: var(--ink-soft); text-decoration: none; margin: -8px 0 14px; }
   .back-level:hover { color: var(--brand); text-decoration: underline; }
@@ -172,12 +169,6 @@
       <input type="text" id="man-name" placeholder="請輸入姓名">
     </div>
 
-    <div id="verify-box" class="hidden">
-      <label for="input-verify">身分證後四碼（防止選錯人，非正式身分驗證）</label>
-      <input type="text" id="input-verify" inputmode="numeric" maxlength="4" placeholder="例如 6989">
-      <div class="verify-msg" id="verify-msg"></div>
-    </div>
-
     <div class="btn-row">
       <button class="ghost" id="btn-back-mode">上一步</button>
       <button class="primary" id="btn-identity-next" disabled>下一步</button>
@@ -301,15 +292,6 @@ let STUDENTS = [];
 let CLUBS = [];
 let CONFIG = null;
 let currentLevel = null;
-
-function fnv1a(str) {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16);
-}
 
 let state = { mode: null, student: null, ranking: [] };
 
@@ -467,18 +449,14 @@ function backToMode() {
 document.getElementById('btn-back-mode').addEventListener('click', backToMode);
 document.getElementById('btn-back-identity-2').addEventListener('click', backToMode);
 
-/* ---------- Identity (學號查詢 + 後四碼防呆 + 手動備援) ---------- */
+/* ---------- Identity (學號查詢 + 手動備援，無身分驗證) ---------- */
 const inputSid = document.getElementById('input-sid');
 const identityFound = document.getElementById('identity-found');
 const manualBox = document.getElementById('manual-box');
 const manSeat = document.getElementById('man-seat');
 const manName = document.getElementById('man-name');
-const verifyBox = document.getElementById('verify-box');
-const inputVerify = document.getElementById('input-verify');
-const verifyMsg = document.getElementById('verify-msg');
 const btnIdentityNext = document.getElementById('btn-identity-next');
 
-let matchedStudent = null;
 let manualStudent = false;
 
 function resetIdentity() {
@@ -487,41 +465,21 @@ function resetIdentity() {
   identityFound.innerHTML = '';
   manualBox.classList.add('hidden');
   manClass.value = ''; manSeat.value = ''; manName.value = '';
-  verifyBox.classList.add('hidden');
-  inputVerify.value = '';
-  verifyMsg.textContent = '';
-  matchedStudent = null;
   manualStudent = false;
   btnIdentityNext.disabled = true;
   state.student = null;
 }
 
 function refreshNextButton() {
-  if (matchedStudent) {
-    const v = inputVerify.value.trim();
-    if (v.length === 4 && fnv1a(v) === matchedStudent.vh) {
-      verifyMsg.textContent = '✓ 驗證碼相符';
-      verifyMsg.className = 'verify-msg ok';
-      state.student = matchedStudent;
-      btnIdentityNext.disabled = false;
-    } else {
-      verifyMsg.textContent = v.length === 4 ? '驗證碼與學號不符，請確認後重新輸入' : '';
-      verifyMsg.className = 'verify-msg bad';
-      state.student = null;
-      btnIdentityNext.disabled = true;
-    }
-  } else if (manualStudent) {
+  if (manualStudent) {
     const cls = manClass.value.trim(), seat = manSeat.value.trim(), name = manName.value.trim();
-    const v = inputVerify.value.trim();
-    if (cls && seat && name && v.length === 4) {
+    if (cls && seat && name) {
       state.student = { 學號: inputSid.value.trim(), 班級: cls, 座號: seat, 姓名: name };
       btnIdentityNext.disabled = false;
     } else {
       state.student = null;
       btnIdentityNext.disabled = true;
     }
-  } else {
-    btnIdentityNext.disabled = true;
   }
 }
 
@@ -529,10 +487,6 @@ inputSid.addEventListener('input', () => {
   const val = inputSid.value.trim();
   identityFound.classList.remove('show', 'not-found');
   manualBox.classList.add('hidden');
-  verifyBox.classList.add('hidden');
-  inputVerify.value = '';
-  verifyMsg.textContent = '';
-  matchedStudent = null;
   manualStudent = false;
   state.student = null;
   btnIdentityNext.disabled = true;
@@ -540,20 +494,18 @@ inputSid.addEventListener('input', () => {
 
   const student = STUDENTS.find(s => String(s.學號) === val);
   if (student) {
-    matchedStudent = student;
+    state.student = student;
     identityFound.innerHTML = `已找到：<b>${student.班級} ${student.座號}號 ${student.姓名}</b>（學號 ${student.學號}）`;
     identityFound.classList.add('show');
-    verifyBox.classList.remove('hidden');
+    btnIdentityNext.disabled = false;
   } else {
     manualStudent = true;
     identityFound.innerHTML = `查無學號「${val}」，請在下方手動填寫資料`;
     identityFound.classList.add('show', 'not-found');
     manualBox.classList.remove('hidden');
-    verifyBox.classList.remove('hidden');
   }
 });
 
-inputVerify.addEventListener('input', refreshNextButton);
 [manClass, manSeat, manName].forEach(el => el.addEventListener('input', refreshNextButton));
 manClass.addEventListener('change', refreshNextButton);
 
