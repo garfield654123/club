@@ -238,6 +238,10 @@
    ============================================================ */
 const REQUIRED_CHOICES = 9;
 
+// 測試階段先不卡控選填時間窗口；正式上線前把這個改回 false，
+// 就會照 CONFIG.SELECT_OPEN / SELECT_CLOSE 卡控開放與截止時間。
+const DISABLE_TIME_WINDOW = true;
+
 const LEVELS = {
   junior: {
     label: "國中部",
@@ -273,8 +277,19 @@ const LEVELS = {
     notices: ["高中部社團與選填規則尚未提供，資料到位後將於此公告。"],
     infoLink: null,
     config: {
-      FORM_ID: "",
-      ENTRY: { sid:"", class:"", name:"", seat:"", choice: [], note: "" },
+      FORM_ID: "1FAIpQLSeGLXoLwWYHQNqNR1THIYrPdX7ze0guQH_bsvJJNjfeM3qdNQ",
+      ENTRY: {
+        sid:    "entry.1352030491",
+        class:  "entry.435384828",
+        name:   "entry.2035104558",
+        seat:   "entry.1764380009",
+        choice: [
+          "entry.1844194024","entry.827205406","entry.214859052",
+          "entry.2076263287","entry.2019789890","entry.1303608828",
+          "entry.179845316","entry.765046384","entry.396330098"
+        ],
+        note: "entry.1850946984"
+      },
       RESPONSES_CSV_URL: "",
       SELECT_OPEN:  "2099-01-01T00:00:00",
       SELECT_CLOSE: "2099-01-01T00:00:00"
@@ -384,6 +399,7 @@ function backToLevel() {
 
 /* ---------- 選填時間窗口 ---------- */
 function selectionWindowState() {
+  if (DISABLE_TIME_WINDOW) return 'open';
   const now = new Date();
   const open = new Date(CONFIG.SELECT_OPEN);
   const close = new Date(CONFIG.SELECT_CLOSE);
