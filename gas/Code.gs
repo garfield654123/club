@@ -1,11 +1,13 @@
 /**
  * 志願填寫系統後端（Google Apps Script Web App）
  *
+ * 社團清單／公告／開放時間現在是「固定文字」，直接寫死在前端 index.html
+ * 的 LEVEL_INFO 裡，這支後端不再提供、也不再讀 Clubs / Notices 分頁
+ * （這兩個分頁留著沒關係，只是後端已經不會用到）。
+ *
  * 資料來源：本試算表底下的分頁
- *   Students  學號 / 班級 / 座號 / 姓名 / vh / level
- *   Clubs     id / level / name / teacher / cap / fee / location / intro
- *   Config    level / label / excludedNote / infoLink_href / infoLink_text / SELECT_OPEN / SELECT_CLOSE
- *   Notices   level / order / text
+ *   Students  學號 / 班級 / 座號 / 姓名 / vh / level  —— 個資，只給 lookup／算 classes 用，不整包送出
+ *   Config    level / ... / SELECT_OPEN / SELECT_CLOSE  —— submit 送出時用來做「真正」的開放時間卡控
  *   Responses timestamp / sid / level / cls / seat / name / choice1..choice9 / note / updatedAt
  *
  * 部署方式：「部署」→「新增部署作業」→ 類型選「網頁應用程式」，
@@ -14,19 +16,24 @@
 
 const REQUIRED_CHOICES = 9;
 
+// 學生名冊的伺服器端快取秒數。改了 Students 分頁之後，最多要等這麼久
+// 前端的學號查詢／班級清單才會看到新版本；想馬上生效可以在編輯器手動執行 clearCache()。
+const CACHE_TTL_SECONDS = 300;
+
 const SHEETS = {
   STUDENTS: 'Students',
-  CLUBS: 'Clubs',
   CONFIG: 'Config',
-  NOTICES: 'Notices',
   RESPONSES: 'Responses'
 };
 
 function doGet(e) {
   try {
     const action = e.parameter.action;
-    if (action === 'bootstrap') {
-      return jsonOut_(bootstrap_(e.parameter.level));
+    if (action === 'classes') {
+      return jsonOut_(classesForLevel_(e.parameter.level));
+    }
+    if (action === 'lookup') {
+      return jsonOut_(lookupStudent_(e.parameter.level, e.parameter.sid));
     }
     if (action === 'query') {
       return jsonOut_(queryResponse_(e.parameter.level, e.parameter.sid));
@@ -86,39 +93,48 @@ function toIso_(v) {
   return String(v || '');
 }
 
-/* ---------- bootstrap：某個就讀階段的名冊／社團／公告／設定 ---------- */
-function bootstrap_(level) {
-  if (!level) return { ok: false, error: '缺少 level 參數' };
+/**
+ * 某個就讀階段的學生名冊（伺服器端快取，不含 vh —— 目前沒有任何地方用到這欄）。
+ * 只給後端自己查（lookupStudent_ / 算 classes 用），不會整包送到瀏覽器。
+ */
+function getStudentsForLevel_(level) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'students_' + level;
+  const cached = cache.get(cacheKey);
+  if (cached) return JSON.parse(cached);
 
   const students = readObjects_(SHEETS.STUDENTS)
     .filter(r => String(r.level) === level)
-    .map(r => ({ 學號: r['學號'], 班級: r['班級'], 座號: r['座號'], 姓名: r['姓名'], vh: r['vh'] }));
+    .map(r => ({ 學號: r['學號'], 班級: r['班級'], 座號: r['座號'], 姓名: r['姓名'] }));
 
-  const clubs = readObjects_(SHEETS.CLUBS)
-    .filter(r => String(r.level) === level)
-    .map(r => ({ id: r.id, name: r.name, teacher: r.teacher, cap: r.cap, fee: r.fee, location: r.location, intro: r.intro }));
+  cache.put(cacheKey, JSON.stringify(students), CACHE_TTL_SECONDS);
+  return students;
+}
 
-  const cfg = readObjects_(SHEETS.CONFIG).filter(r => String(r.level) === level)[0] || {};
+/** classes：查無學號、要手動填寫時，班級下拉選單用的資料（該階段所有學生的班級去重排序）。 */
+function classesForLevel_(level) {
+  if (!level) return { ok: false, error: '缺少 level 參數' };
+  const classes = [...new Set(getStudentsForLevel_(level).map(s => s['班級']))].sort();
+  return { ok: true, level: level, classes: classes };
+}
 
-  const notices = readObjects_(SHEETS.NOTICES)
-    .filter(r => String(r.level) === level)
-    .sort((a, b) => Number(a.order) - Number(b.order))
-    .map(r => r.text);
+/* ---------- lookup：輸入學號時，即時查這一個學生的班級／座號／姓名 ---------- */
+function lookupStudent_(level, sid) {
+  if (!level) return { ok: false, error: '缺少 level 參數' };
+  if (!sid) return { ok: false, error: '缺少學號' };
+  const target = String(sid).trim();
+  const student = getStudentsForLevel_(level).find(s => String(s['學號']) === target);
+  if (!student) return { ok: true, found: false };
+  return { ok: true, found: true, 學號: student['學號'], 班級: student['班級'], 座號: student['座號'], 姓名: student['姓名'] };
+}
 
-  return {
-    ok: true,
-    level: level,
-    label: cfg.label || level,
-    excludedNote: cfg.excludedNote || '',
-    infoLink: cfg.infoLink_href ? { href: cfg.infoLink_href, text: cfg.infoLink_text || '' } : null,
-    notices: notices,
-    students: students,
-    clubs: clubs,
-    config: {
-      SELECT_OPEN: toIso_(cfg.SELECT_OPEN),
-      SELECT_CLOSE: toIso_(cfg.SELECT_CLOSE)
-    }
-  };
+/** 手動清除快取：改了 Students 分頁後想馬上生效，在編輯器選這個函式執行即可。 */
+function clearCache() {
+  const cache = CacheService.getScriptCache();
+  ['junior', 'senior'].forEach(level => {
+    cache.remove('students_' + level);
+  });
+  Logger.log('快取已清除');
 }
 
 /* ---------- query：查詢單一學號目前送出的志願（只回傳這個學生自己的資料） ---------- */
@@ -150,31 +166,18 @@ function submitResponse_(payload) {
   const seat = payload.seat || '';
   const name = payload.name || '';
   const note = payload.note || '';
-  const choiceIds = payload.choices || [];
+  // 社團清單現在是前端固定資料，這裡直接收社團「名稱」字串（不再是 id），
+  // 不用另外讀 Clubs 分頁比對——社團名稱本身有沒有效，交給前端的固定清單把關。
+  const choiceNames = (payload.choices || []).map(v => String(v || '').trim());
 
   if (!level) return { ok: false, error: '缺少 level' };
   if (!sid) return { ok: false, error: '缺少學號' };
   if (!name) return { ok: false, error: '缺少姓名' };
-  if (choiceIds.length !== REQUIRED_CHOICES) {
+  if (choiceNames.length !== REQUIRED_CHOICES || choiceNames.some(n => !n)) {
     return { ok: false, error: '志願數量須為 ' + REQUIRED_CHOICES + ' 個' };
   }
-  if (new Set(choiceIds.map(String)).size !== choiceIds.length) {
+  if (new Set(choiceNames).size !== choiceNames.length) {
     return { ok: false, error: '志願不可重複' };
-  }
-
-  const clubs = readObjects_(SHEETS.CLUBS).filter(r => String(r.level) === level);
-  const clubMap = {};
-  clubs.forEach(c => { clubMap[String(c.id)] = c; });
-
-  let choiceNames;
-  try {
-    choiceNames = choiceIds.map(id => {
-      const c = clubMap[String(id)];
-      if (!c) throw new Error('志願包含無效的社團 id：' + id);
-      return c.name;
-    });
-  } catch (err) {
-    return { ok: false, error: String(err.message || err) };
   }
 
   // 伺服器端再次確認選填時間窗，避免有人繞過前端的時間卡控

@@ -9,6 +9,7 @@
     --ink: #1c2b3a; --ink-soft: #4a5b6c; --paper: #f6f4ee; --card: #ffffff;
     --line: #dcd6c8; --brand: #2f5d50; --brand-dark: #22443a; --accent: #c76b3f;
     --danger: #b3452f; --radius: 14px;
+    --go: #16a34a; --go-dark: #12833d;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -47,10 +48,13 @@
   .mode-btn:disabled:hover, .mode-btn.disabled:hover { border-color: var(--line); }
   @media (max-width: 480px) { .mode-select { grid-template-columns: 1fr; } }
   .btn-row { display: flex; justify-content: space-between; gap: 10px; margin-top: 22px; }
-  button { font-family: inherit; font-size: 15px; font-weight: 600; padding: 12px 22px; border-radius: 10px; border: none; cursor: pointer; transition: opacity 0.15s ease, transform 0.1s ease; }
+  button { font-family: inherit; font-size: 15px; font-weight: 600; padding: 12px 22px; border-radius: 10px; border: none; cursor: pointer; transition: background-color 0.15s ease, opacity 0.15s ease, transform 0.1s ease; }
   button:active { transform: scale(0.98); }
-  button.primary { background: var(--brand); color: #fff; }
-  button.primary:disabled { background: #a9b7ae; cursor: not-allowed; }
+  button.primary { background: var(--go); color: #fff; }
+  button.primary:hover { background: var(--go-dark); }
+  button.primary:disabled, button.primary.not-ready { background: #a9b7ae; }
+  button.primary.not-ready:hover { background: #a9b7ae; }
+  button.primary:disabled { cursor: not-allowed; }
   button.ghost { background: transparent; color: var(--ink-soft); border: 1.5px solid var(--line); }
   .club-pool { list-style: none; margin: 0; padding: 0; }
   .club-item { border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #fff; }
@@ -65,9 +69,22 @@
   .count-note { font-size: 13px; color: var(--ink-soft); margin: 10px 0 16px; }
   .count-note b { color: var(--brand-dark); }
   .insurance-tip { font-size: 12.5px; color: var(--accent); margin: -8px 0 14px; }
+  .pick-warning { background: #fbeee8; border: 1px solid #e3b7a0; border-radius: 10px; padding: 10px 14px; font-size: 13.5px; color: var(--danger); margin-top: 12px; }
   table.confirm { width: 100%; border-collapse: collapse; font-size: 14.5px; }
   table.confirm td { padding: 8px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
   table.confirm td.k { color: var(--ink-soft); width: 90px; white-space: nowrap; }
+  .confirm-identity { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin-bottom: 20px; }
+  .confirm-identity .row { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+  .confirm-identity .k { color: var(--ink-soft); }
+  .confirm-identity .v { font-weight: 700; color: var(--ink); }
+  .confirm-subhead { font-size: 14px; font-weight: 700; color: var(--brand-dark); margin: 0 0 10px; }
+  .confirm-ranking { list-style: none; margin: 0 0 4px; padding: 0; }
+  .confirm-ranking li { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--line); }
+  .confirm-ranking li:last-child { border-bottom: none; }
+  .confirm-ranking .badge { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--go); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+  .confirm-ranking .name { font-weight: 700; font-size: 14.5px; }
+  .confirm-ranking .sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+  @media (max-width: 480px) { .confirm-identity { grid-template-columns: 1fr; } }
   .warn-box { background: #fbeee8; border: 1px solid #e3b7a0; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; color: var(--danger); margin-top: 16px; }
   .science-note { margin-top: 10px; font-size: 12.5px; color: var(--ink-soft); padding: 10px 12px; border: 1px dashed var(--line); border-radius: 10px; }
   .notice-list { margin: 0; padding-left: 20px; font-size: 13.5px; color: var(--ink-soft); }
@@ -183,9 +200,10 @@
     <p class="insurance-tip">💡 小提醒：建議把第 8、9 志願當作「保險志願」，選一個萬一落選也勉強能接受的社團，以免全部落選影響自身權益。</p>
     <ul class="club-pool" id="club-pool"></ul>
     <div class="science-note" id="excluded-note"></div>
+    <div class="pick-warning hidden" id="pick-warning"></div>
     <div class="btn-row">
       <button class="ghost" id="btn-back-identity">上一步</button>
-      <button class="primary" id="btn-to-confirm" disabled>下一步：確認資料</button>
+      <button class="primary not-ready" id="btn-to-confirm">下一步：確認資料</button>
     </div>
   </section>
 
@@ -193,7 +211,9 @@
   <section class="card hidden" id="step-confirm">
     <div class="step-label">Step 3 · 確認送出</div>
     <h2>請核對以下資料</h2>
-    <table class="confirm" id="confirm-table"></table>
+    <div class="confirm-identity" id="confirm-identity"></div>
+    <div class="confirm-subhead">你的志願順序</div>
+    <ol class="confirm-ranking" id="confirm-ranking"></ol>
 
     <label for="input-note">其他說明（選填）</label>
     <textarea id="input-note" rows="3" placeholder="若有相關學習或比賽經歷或舊社員，可在此稍作說明，以增加選上機會。"></textarea>
@@ -224,25 +244,51 @@
 
 <script>
 /* ============================================================
-   名冊／社團／公告／開放時間都存在 Google Sheets，由 GAS Web App
-   （見 gas/Code.gs）提供 bootstrap / query / submit 三個 API，
-   這裡只保留畫面互動邏輯。
+   社團清單／公告／開放時間是固定資料，直接寫在下面的 LEVEL_INFO，
+   要調整就直接改這裡（改完記得重新 push）。
+   學生名冊、志願送出／查詢紀錄則存在 Google Sheets，由 GAS Web App
+   （見 gas/Code.gs）提供 lookup / submit / query / classes 四個 API。
    ============================================================ */
 const REQUIRED_CHOICES = 9;
 
 // 測試階段先不卡控選填時間窗口；正式上線前把這個改回 false。
-// 注意：伺服器端（submitResponse_）一定會再檢查一次開放時間，
-// 這裡只影響「填寫志願」按鈕在畫面上是否可以按。
+// 注意：伺服器端（submitResponse_）一定會再檢查一次 Config 分頁裡的開放時間，
+// 這裡只影響「填寫志願」按鈕在畫面上是否可以按——所以正式的開放/截止時間，
+// 除了改這裡（畫面顯示用），也要記得同步改 Google Sheets 的 Config 分頁
+// （伺服器端真正卡控用），兩邊要一起改才會一致。
 const DISABLE_TIME_WINDOW = true;
 
 // 部署 gas/Code.gs 成 Web App 後，把 /exec 網址貼在這裡（見 gas/SETUP.md）。
-const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbx-gl_VhsbbMQgDcgSpkPH6VEZP6F1hNpihUhZEamAHSYuvf3vEwJU6poJpJ9hErgK9/exec";
+// 現在只用來查學號對應的學生資料（lookup）、送出/查詢志願（submit/query）、
+// 以及查無學號時手動選班級用的班級清單（classes）。
+const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbx0oX6Sor4JDCXK79e6eKooaGwMeVDnYihy5yDpl5-uHPuxFrtJfkuwtsT1jF7hN_4D/exec";
 
-// 選定「國中部／高中部」之後，名冊／社團／公告／開放時間都會即時向上面的
-// GAS 後端拿最新版本，這裡不再內嵌任何學生或社團資料。
+const LEVEL_INFO = {
+  junior: {
+    label: "國中部",
+    excludedNote: "⚠️ 科展研究社不開放於本系統選填，僅限指導老師另行通知之特定學生報名，如有疑問請洽指導老師方思堯老師。",
+    infoLink: { href: "https://reurl.cc/Z8VNWa", text: "📎 查看田中高中(國中部) 115學年度上學期社團詳細簡介" },
+    notices: ["線上選填時間：<b>09/04(五) 17:00 起至 09/06(日) 24:00 截止</b>，送出後即無法更改，請務必確認清楚再送出。", "選填對象：七、八年級同學皆須選填（體育班除外）。", "一人可填 9 個志願，請依喜好程度排序且不得重複；建議把第 8、9 志願當作「保險志願」，以免全部落選、影響自身權益。重複選填視為選填有問題，需參加補選。", "補選時間：<b>09/08(二) 午休 12:35</b>，第二電腦教室。選填有問題或無法選填者，請向導師報備參加補選；未參加補選者，將由學務處逕行安排分配社團。", "上課日期共六次，皆為星期五第六、七節，16:05 準時放學：<br>09/11、10/23、11/06、12/04、12/18、116/01/15。", "射箭社、武術社、袋棍球社將前往龍江館室外上課，16:05 於龍江館放學，請家長與學生約定好接送位置。龍江館緊急聯絡電話：04-8746062。", "部分社團須繳交社費或材料費，請留意各社團標示的費用（已列在下方社團清單中）。", "社團課程結束後，請恢復借用班級原貌，不得擅動他人物品；原班導師如發現異狀，請告知學務處。"],
+    clubs: [{"id": 1, "name": "吉他社", "teacher": "張書杰老師", "cap": 20, "fee": "0元", "location": "701教室", "intro": "透過原聲吉他演奏與伴奏，掌握旋律、節奏與和聲；深化音色與律動敏感度，靈活展現吉他獨特魅力，達成自彈自唱與吉他演奏的目標。"}, {"id": 2, "name": "鉤針編織社", "teacher": "黃瀞誼老師", "cap": 20, "fee": "275～325元", "location": "702教室", "intro": "一支鉤針、一張織圖、一份興趣，在鉤織過程中靜心，在專注中完成手作的夢想。歡迎一起進入鉤織的世界，豐富彼此的生活。"}, {"id": 3, "name": "烏克麗麗社", "teacher": "李冠慶老師", "cap": 20, "fee": "100元", "location": "703教室", "intro": "每個人都可能有小小的音樂夢，但礙於經費和時間有所限制而怯步。而烏克麗麗價格較低，容易上手，可以彈奏出吉他及電吉他的音效，且無環境上的限制，希望能讓曾擁有音樂夢，卻還無法達成的人能實現夢想。"}, {"id": 4, "name": "越南文化社", "teacher": "丁氏雲燕老師", "cap": 20, "fee": "150元", "location": "704教室", "intro": "越南語教學和 DIY 和美食分享"}, {"id": 5, "name": "書法藝術社", "teacher": "林孟輝老師", "cap": 20, "fee": "0～200元", "location": "學扶教室", "intro": "一、介紹書法文字及歷代字帖、作品賞析。\n二、臨習字帖、傳統名家作品及自行創作。\n三、創新書法結合手機拍照，呈現書法的多樣貌。"}, {"id": 6, "name": "古早童玩社", "teacher": "許美玲", "cap": 16, "fee": "未標示", "location": "706教室", "intro": "古早童玩社致力保存傳統童玩文化，透過體驗、教學與互動遊戲，讓大小朋友感受古早童玩的樂趣與世代傳承精神。"}, {"id": 7, "name": "動漫社", "teacher": "李一芳老師", "cap": 20, "fee": "0元", "location": "707教室", "intro": "增進社員動漫知識、培養手繪技巧、激發創作潛能、分享與鑑賞動漫作品、以及推廣動漫相關活動。"}, {"id": 8, "name": "韓瘋 K-POP MV 社", "teacher": "李怡萱老師", "cap": 20, "fee": "0元", "location": "藝能教室", "intro": "熱愛舞蹈、想跳最夯韓團的舞步？這裡就是你的舞台！K-pop 社團帶你一起學習流行韓團舞蹈，不只跳舞，我們還會一起學習基本節奏感、隊形變化、鏡面排練，甚至拍攝帥氣的練舞影片，留下青春紀錄📸✨\n不需要有舞蹈基礎，只要你有熱情、敢挑戰，歡迎加入我們！\nLet’s K-pop！讓全校看到你的閃耀！"}, {"id": 9, "name": "卡拉 OK", "teacher": "吳俊辰老師", "cap": 20, "fee": "50元", "location": "社群教室", "intro": "以輕鬆的氛圍讓學生歡唱，進而提升學生的唱歌技巧、舞台表現技巧及團隊協作能力。"}, {"id": 10, "name": "小提琴弦樂社", "teacher": "蘇靜玉老師", "cap": 20, "fee": "360元", "location": "音樂教室2F", "intro": "學習弦樂團之女王小提琴能開發智力、提高專注力、培養耐心和毅力、增強協調能力、提升音樂鑑賞力，以及舒緩壓力、提升自信心和社交能力。"}, {"id": 11, "name": "管樂社", "teacher": "邱袖恩老師", "cap": 15, "fee": "0元", "location": "音樂教室3F", "intro": "在於提升學員的音樂技巧，更重視培養學生的團隊精神、專業態度和自我表現的潛力。希望學員們能在音樂學習中發現自我，並帶著健康積極的心態，邁向更高的音樂成就。"}, {"id": 12, "name": "木工玩樂趣社", "teacher": "黃圳傑老師", "cap": 20, "fee": "500元", "location": "美術教室", "intro": "木工玩樂趣社團，以輕鬆、趣味的方式，帶領學生體驗木工製作，從基礎工具操作到成品完成，逐步提升學生的創意、專注與手作能力，課程內容兼具實用性與美感設計，並結合生活應用，打造寓教於樂的學習氛圍。"}, {"id": 13, "name": "客家文化社", "teacher": "李秀麗老師", "cap": 20, "fee": "200元", "location": "童軍教室", "intro": "想認識不一樣的台灣文化？想玩、想吃、想唱、想做，還想學點有趣的新技能？客家文化社等你來尞！\n在這裡，不用怕「客語很難」，我們用輕鬆、好玩、生活化的方式認識客家文化！一起學客語、唱客家歌、玩客家童玩，體驗客家美食與 DIY，探索客家聚落與在地故事，還會結合 AI、雙語、音樂、遊戲與創意活動，讓傳統文化變得超有趣！\n我們會玩：客語歌曲×音樂、生活客語×趣味挑戰、客家美食×DIY實作、客家花布×創意手作、團康遊戲×闖關活動、AI×客家文化創意、在地走讀×認識客庄。\n不管你會不會客語、是不是客家人，都歡迎來！因為文化不是只有「學」，更是一起玩、一起體驗、一起分享。"}, {"id": 14, "name": "射箭社", "teacher": "蕭耀宗老師、謝昊融教練", "cap": 20, "fee": "0元", "location": "龍江館－射箭場", "intro": "射箭運動是我國重點發展項目，可提升學生上肢肌力與專注力，並進一步了解國際賽事規則與提升對射箭相關知識的了解。"}, {"id": 15, "name": "武術社", "teacher": "黃孝恩老師、陳煒強教練", "cap": 20, "fee": "0元", "location": "龍江館－活動中心", "intro": "武術散打及套路"}, {"id": 16, "name": "籃球社", "teacher": "李昆沅老師", "cap": 20, "fee": "0元", "location": "籃球場", "intro": "本社團為了發揚籃球運動之精神，提倡校內運動之風氣，培養個人興趣發展並啟發潛在能力，並找尋對籃球有興趣之同學未來直升高中部體育班。"}, {"id": 17, "name": "高爾夫練習社", "teacher": "張麗幀教練、迪秧教練", "cap": 20, "fee": "0元", "location": "操場", "intro": "對高爾夫球有著憧憬嗎？看著那姿態優美的揮桿動作心生嚮往嗎？不要猶豫了！加入高爾夫練習社就對了！！"}, {"id": 18, "name": "袋棍球社", "teacher": "許晉豪老師", "cap": 20, "fee": "50元", "location": "龍江館", "intro": "袋棍球（Lacrosse）是一項結合速度、技巧與團隊合作的運動，起源於北美原住民，被譽為「世界上最快的草地運動」。在比賽中，球員利用特製的球桿將球傳遞、控球並射門，攻防節奏快、趣味性高，能同時培養反應力、協調性與團隊精神。想體驗「世界最快的草地運動」嗎？零基礎也能奔跑全場、帥氣進球！"}],
+    SELECT_OPEN: "2026-09-04T17:00:00",
+    SELECT_CLOSE: "2026-09-07T00:00:00"
+  },
+  senior: {
+    label: "高中部",
+    excludedNote: "",
+    infoLink: null,
+    notices: ["高中部社團與選填規則尚未提供，資料到位後將於此公告。"],
+    clubs: [],
+    SELECT_OPEN: "2099-01-01T00:00:00",
+    SELECT_CLOSE: "2099-01-01T00:00:00"
+  }
+};
+
+// 查無學號時，手動填寫班級用的下拉選單資料，跟學生名冊一樣存在 Sheets，
+// 用到才即時查（見 getClasses()），並在同一個就讀階段內快取結果。
+let classesCache = {};
+
 let currentLevelData = null;
-
-let STUDENTS = [];
 let CLUBS = [];
 let CONFIG = null;
 let currentLevel = null;
@@ -269,43 +315,39 @@ const windowNote = document.getElementById('window-note');
 const manClass = document.getElementById('man-class');
 const excludedNote = document.getElementById('excluded-note');
 
-function refreshManualClasses() {
+/** 查無學號時的手動班級下拉選單。用 GAS 的 classes API 查一次就快取起來，同一階段不重查。 */
+async function getClasses(level) {
+  if (classesCache[level]) return classesCache[level];
+  try {
+    const res = await fetch(`${WEBAPP_URL}?action=classes&level=${encodeURIComponent(level)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || '載入班級清單失敗');
+    classesCache[level] = data.classes;
+    return data.classes;
+  } catch (err) {
+    return [];
+  }
+}
+
+function refreshManualClasses(classes) {
   manClass.innerHTML = '<option value="">請選擇班級</option>';
-  const classes = [...new Set(STUDENTS.map(s => s.班級))].sort();
-  classes.forEach(c => {
+  (classes || []).forEach(c => {
     const opt = document.createElement('option');
     opt.value = c; opt.textContent = c;
     manClass.appendChild(opt);
   });
 }
 
-async function selectLevel(levelKey) {
+function selectLevel(levelKey) {
   currentLevel = levelKey;
+  const L = LEVEL_INFO[levelKey];
+  currentLevelData = L;
+  CLUBS = L.clubs;
+  CONFIG = { SELECT_OPEN: L.SELECT_OPEN, SELECT_CLOSE: L.SELECT_CLOSE };
 
   stepLevel.classList.add('hidden');
   backLevel.classList.remove('hidden');
   announcement.classList.remove('hidden');
-  stepMode.classList.add('hidden');
-  infoLink.classList.add('hidden');
-  excludedNote.classList.add('hidden');
-  levelEmptyNote.classList.add('hidden');
-  windowNote.classList.add('hidden');
-  noticeList.innerHTML = '<li>載入中，請稍候…</li>';
-
-  let L;
-  try {
-    const res = await fetch(`${WEBAPP_URL}?action=bootstrap&level=${levelKey}`);
-    L = await res.json();
-    if (!L.ok) throw new Error(L.error || '載入失敗');
-  } catch (err) {
-    noticeList.innerHTML = `<li>資料載入失敗，請稍後再試或聯絡系統管理者。（${err.message || err}）</li>`;
-    return;
-  }
-
-  currentLevelData = L;
-  STUDENTS = L.students;
-  CLUBS = L.clubs;
-  CONFIG = L.config;
 
   noticeList.innerHTML = L.notices.map(n => `<li>${n}</li>`).join('');
   if (L.infoLink) {
@@ -318,7 +360,9 @@ async function selectLevel(levelKey) {
   excludedNote.innerHTML = L.excludedNote;
   excludedNote.classList.toggle('hidden', !L.excludedNote);
 
-  refreshManualClasses();
+  // 手動選班級用的清單只有查無學號時才會用到，這裡先在背景預查、不擋畫面顯示。
+  getClasses(levelKey);
+
   stepMode.classList.remove('hidden');
 
   if (CLUBS.length === 0) {
@@ -429,6 +473,8 @@ const manName = document.getElementById('man-name');
 const btnIdentityNext = document.getElementById('btn-identity-next');
 
 let manualStudent = false;
+let sidLookupTimer = null;
+let sidLookupSeq = 0;
 
 function resetIdentity() {
   inputSid.value = '';
@@ -461,20 +507,42 @@ inputSid.addEventListener('input', () => {
   manualStudent = false;
   state.student = null;
   btnIdentityNext.disabled = true;
+  if (sidLookupTimer) clearTimeout(sidLookupTimer);
   if (!val) return;
 
-  const student = STUDENTS.find(s => String(s.學號) === val);
-  if (student) {
-    state.student = student;
-    identityFound.innerHTML = `已找到：<b>${student.班級} ${student.座號}號 ${student.姓名}</b>（學號 ${student.學號}）`;
-    identityFound.classList.add('show');
-    btnIdentityNext.disabled = false;
-  } else {
-    manualStudent = true;
-    identityFound.innerHTML = `查無學號「${val}」，請在下方手動填寫資料`;
-    identityFound.classList.add('show', 'not-found');
-    manualBox.classList.remove('hidden');
-  }
+  identityFound.innerHTML = '查詢中…';
+  identityFound.classList.add('show');
+
+  const seq = ++sidLookupSeq;
+  sidLookupTimer = setTimeout(async () => {
+    let data;
+    try {
+      const url = `${WEBAPP_URL}?action=lookup&level=${encodeURIComponent(currentLevel)}&sid=${encodeURIComponent(val)}`;
+      const res = await fetch(url);
+      data = await res.json();
+      if (!data.ok) throw new Error(data.error || '查詢失敗');
+    } catch (err) {
+      if (seq !== sidLookupSeq) return; // 使用者後來又改了輸入，這次結果已經過期
+      identityFound.innerHTML = `查詢失敗，請稍後再試。（${err.message || err}）`;
+      identityFound.classList.add('show', 'not-found');
+      return;
+    }
+    if (seq !== sidLookupSeq) return; // 同上：過期的結果不要覆蓋畫面
+
+    if (data.found) {
+      state.student = { 學號: data.學號, 班級: data.班級, 座號: data.座號, 姓名: data.姓名 };
+      identityFound.innerHTML = `已找到：<b>${data.班級} ${data.座號}號 ${data.姓名}</b>（學號 ${data.學號}）`;
+      identityFound.classList.add('show');
+      identityFound.classList.remove('not-found');
+      btnIdentityNext.disabled = false;
+    } else {
+      manualStudent = true;
+      identityFound.innerHTML = `查無學號「${val}」，請在下方手動填寫資料`;
+      identityFound.classList.add('show', 'not-found');
+      manualBox.classList.remove('hidden');
+      refreshManualClasses(await getClasses(currentLevel));
+    }
+  }, 350);
 });
 
 [manClass, manSeat, manName].forEach(el => el.addEventListener('input', refreshNextButton));
@@ -504,6 +572,7 @@ document.getElementById('btn-back-identity').addEventListener('click', () => {
 const clubPool = document.getElementById('club-pool');
 const pickCount = document.getElementById('pick-count');
 const btnToConfirm = document.getElementById('btn-to-confirm');
+const pickWarning = document.getElementById('pick-warning');
 
 function renderClubPool() {
   clubPool.innerHTML = '';
@@ -535,24 +604,40 @@ function renderClubPool() {
 function renderClubStep() {
   pickCount.textContent = state.ranking.length;
   renderClubPool();
-  btnToConfirm.disabled = state.ranking.length !== REQUIRED_CHOICES;
+  btnToConfirm.classList.toggle('not-ready', state.ranking.length !== REQUIRED_CHOICES);
+  pickWarning.classList.add('hidden'); // 使用者一有動作，先前顯示的警告就先收起來
 }
 
 document.getElementById('btn-to-confirm').addEventListener('click', () => {
+  const remaining = REQUIRED_CHOICES - state.ranking.length;
+  if (remaining > 0) {
+    pickWarning.textContent = `還有 ${remaining} 個志願未填寫，請選滿 9 個志願才能進到下一步。`;
+    pickWarning.classList.remove('hidden');
+    return;
+  }
+  pickWarning.classList.add('hidden');
+
   stepClubs.classList.add('hidden');
   stepConfirm.classList.remove('hidden');
   setProgress(2);
   document.getElementById('input-note').value = '';
   const s = state.student;
-  let rows = [
-    ['姓名', s.姓名], ['班級', s.班級], ['座號', s.座號 + ' 號'], ['學號', s.學號],
-  ];
-  state.ranking.forEach((cid, i) => {
+
+  document.getElementById('confirm-identity').innerHTML = [
+    ['姓名', s.姓名], ['班級', s.班級], ['座號', s.座號 + ' 號'], ['學號', s.學號]
+  ].map(([k, v]) => `<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+
+  document.getElementById('confirm-ranking').innerHTML = state.ranking.map((cid, i) => {
     const club = CLUBS.find(c => c.id === cid);
-    rows.push([`第${i+1}志願`, club.name]);
-  });
-  document.getElementById('confirm-table').innerHTML =
-    rows.map(([k,v]) => `<tr><td class="k">${k}</td><td>${v}</td></tr>`).join('');
+    return `
+      <li>
+        <div class="badge">${i + 1}</div>
+        <div class="meta">
+          <div class="name">${club.name}</div>
+          <div class="sub">${club.teacher}｜${club.location}</div>
+        </div>
+      </li>`;
+  }).join('');
 });
 
 document.getElementById('btn-back-clubs').addEventListener('click', () => {
@@ -579,7 +664,7 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
         cls: s.班級,
         seat: s.座號,
         name: s.姓名,
-        choices: state.ranking,
+        choices: state.ranking.map(cid => CLUBS.find(c => c.id === cid).name),
         note: note
       })
     });
