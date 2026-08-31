@@ -1,0 +1,4 @@
+# 內含真實學生姓名／學號的種子資料，只用來貼進 Apps Script 編輯器跑一次性匯入，
+# 不應該出現在這個公開的靜態前端 repo 裡。
+gas/SeedJunior.gs
+gas/Seed*.gs
