@@ -439,6 +439,7 @@ modeFillBtn.addEventListener('click', () => {
   state.mode = 'fill';
   resetIdentity();
   stepMode.classList.add('hidden');
+  announcement.classList.add('hidden'); // 選填注意事項只在填寫前顯示，開始填寫後收起來
   progressBar.classList.remove('hidden');
   stepIdentity.classList.remove('hidden');
   document.getElementById('btn-identity-next').textContent = '下一步：選填志願';
@@ -449,6 +450,7 @@ modeQueryBtn.addEventListener('click', () => {
   state.mode = 'query';
   resetIdentity();
   stepMode.classList.add('hidden');
+  announcement.classList.add('hidden');
   progressBar.classList.add('hidden');
   stepIdentity.classList.remove('hidden');
   document.getElementById('btn-identity-next').textContent = '查詢我的選填紀錄';
@@ -459,6 +461,7 @@ function backToMode() {
   stepQuery.classList.add('hidden');
   progressBar.classList.add('hidden');
   stepMode.classList.remove('hidden');
+  announcement.classList.remove('hidden'); // 回到「你想要做什麼」這一步，注意事項要再顯示回來
   state = { mode: null, student: null, ranking: [] };
 }
 document.getElementById('btn-back-mode').addEventListener('click', backToMode);
