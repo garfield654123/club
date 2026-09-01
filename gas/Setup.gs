@@ -5,9 +5,9 @@
  */
 function initSheets() {
   const ss = ss_();
-  createSheetWithHeaders_(ss, SHEETS.STUDENTS, ['學號', '班級', '座號', '姓名', 'vh', 'level']);
+  createSheetWithHeaders_(ss, SHEETS.STUDENTS, ['學號', '班級', '座號', '姓名', 'vh', 'level', '身分證後四碼']);
   createSheetWithHeaders_(ss, SHEETS.CLUBS, ['id', 'level', 'name', 'teacher', 'cap', 'fee', 'location', 'intro']);
-  createSheetWithHeaders_(ss, SHEETS.CONFIG, ['level', 'label', 'excludedNote', 'infoLink_href', 'infoLink_text', 'SELECT_OPEN', 'SELECT_CLOSE']);
+  createSheetWithHeaders_(ss, SHEETS.CONFIG, ['level', 'label', 'excludedNote', 'infoLink_href', 'infoLink_text', 'SELECT_OPEN', 'SELECT_CLOSE', 'MAKEUP_OPEN', 'MAKEUP_CLOSE']);
   createSheetWithHeaders_(ss, SHEETS.NOTICES, ['level', 'order', 'text']);
 
   const respHeaders = ['timestamp', 'sid', 'level', 'cls', 'seat', 'name'];
@@ -25,6 +25,64 @@ function createSheetWithHeaders_(ss, name, headers) {
     sh.getRange(1, 1, 1, headers.length).setValues([headers]);
     sh.setFrozenRows(1);
   }
+}
+
+/** 一次性遷移工具：既有的 Students 分頁是在加入「身分證後四碼」欄位之前建立的，
+ * initSheets() 只會幫「全新」的分頁補標題列，不會動已經有資料的舊分頁，
+ * 所以要用這支手動補上這欄。在 Apps Script 編輯器選這個函式執行一次即可，
+ * 已經有這欄的話會直接跳過，重複執行也不會出問題。
+ * 補上欄位後，記得到 Students 分頁把每位學生的身分證後四碼實際填進去，
+ * 在填之前 lookup 會因為欄位是空的而一律判定「身分證後四碼不正確」。 */
+function addIdLast4ColumnToStudents() {
+  const sh = sheet_(SHEETS.STUDENTS);
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  if (headers.indexOf('身分證後四碼') !== -1) {
+    Logger.log('Students 分頁已經有「身分證後四碼」欄位，不用重複新增。');
+    return;
+  }
+  sh.getRange(1, headers.length + 1).setValue('身分證後四碼');
+  Logger.log('已在 Students 分頁新增「身分證後四碼」欄位，請記得手動填入每位學生的資料。');
+}
+
+/** 一次性遷移工具：既有的 Config 分頁是在加入「補選」時間窗之前建立的，
+ * 補上 MAKEUP_OPEN / MAKEUP_CLOSE 兩欄（已經有的話會跳過，可重複執行）。
+ * 補完欄位後，記得呼叫 writeMakeupWindow_() 把各 level 實際的補選開放/截止時間填進去，
+ * 否則 submitResponse_ 會判斷成「未設定」而不卡控補選窗口。 */
+function addMakeupWindowColumnsToConfig() {
+  const sh = sheet_(SHEETS.CONFIG);
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const missing = ['MAKEUP_OPEN', 'MAKEUP_CLOSE'].filter(h => headers.indexOf(h) === -1);
+  if (!missing.length) {
+    Logger.log('Config 分頁已經有補選時間窗欄位，不用重複新增。');
+    return;
+  }
+  missing.forEach((h, i) => sh.getRange(1, headers.length + 1 + i).setValue(h));
+  Logger.log('已在 Config 分頁新增欄位：%s，請記得呼叫 writeMakeupWindow_() 填入各 level 的補選時間。', missing.join(', '));
+}
+
+/** 寫入（或覆蓋）某個 level 的補選開放/截止時間，只更新 MAKEUP_OPEN/MAKEUP_CLOSE 這兩欄，
+ * 不影響同一列的其他欄位（例如 SELECT_OPEN/SELECT_CLOSE）。
+ * openIso / closeIso 格式範例："2026-09-07T00:00:00"。
+ * 範例：writeMakeupWindow_('junior', '2026-09-07T00:00:00', '2026-09-07T20:00:00'); */
+function writeMakeupWindow_(level, openIso, closeIso) {
+  const sh = sheet_(SHEETS.CONFIG);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const levelCol = headers.indexOf('level');
+  const openCol = headers.indexOf('MAKEUP_OPEN');
+  const closeCol = headers.indexOf('MAKEUP_CLOSE');
+  if (openCol === -1 || closeCol === -1) {
+    throw new Error('Config 分頁還沒有 MAKEUP_OPEN/MAKEUP_CLOSE 欄位，請先執行 addMakeupWindowColumnsToConfig()。');
+  }
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][levelCol]) === level) {
+      sh.getRange(i + 1, openCol + 1).setValue(openIso);
+      sh.getRange(i + 1, closeCol + 1).setValue(closeIso);
+      Logger.log('已更新 %s 的補選時間：%s ～ %s', level, openIso, closeIso);
+      return;
+    }
+  }
+  throw new Error('Config 分頁找不到 level=' + level + ' 的那一列，請先確認 Config 分頁已有這個 level 的設定。');
 }
 
 /* ---------- 給 Seed*.gs 呼叫的寫入輔助函式 ---------- */

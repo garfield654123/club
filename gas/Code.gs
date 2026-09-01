@@ -6,7 +6,8 @@
  * （這兩個分頁留著沒關係，只是後端已經不會用到）。
  *
  * 資料來源：本試算表底下的分頁
- *   Students  學號 / 班級 / 座號 / 姓名 / vh / level  —— 個資，只給 lookup／算 classes 用，不整包送出
+ *   Students  學號 / 班級 / 座號 / 姓名 / vh / level / 身分證後四碼  —— 個資，只給 lookup／算 classes 用，不整包送出
+ *             （身分證後四碼只用來在 lookup 時比對驗證，絕不會回傳給前端）
  *   Config    level / ... / SELECT_OPEN / SELECT_CLOSE  —— submit 送出時用來做「真正」的開放時間卡控
  *   Responses timestamp / sid / level / cls / seat / name / choice1..choice9 / note / updatedAt
  *
@@ -35,7 +36,7 @@ function doGet(e) {
       return jsonOut_(classesForLevel_(e.parameter.level));
     }
     if (action === 'lookup') {
-      return jsonOut_(lookupStudent_(e.parameter.level, e.parameter.sid));
+      return jsonOut_(lookupStudent_(e.parameter.level, e.parameter.sid, e.parameter.idLast4));
     }
     if (action === 'query') {
       return jsonOut_(queryResponse_(e.parameter.level, e.parameter.sid));
@@ -107,7 +108,7 @@ function getStudentsForLevel_(level) {
 
   const students = readObjects_(SHEETS.STUDENTS)
     .filter(r => String(r.level) === level)
-    .map(r => ({ 學號: r['學號'], 班級: r['班級'], 座號: r['座號'], 姓名: r['姓名'] }));
+    .map(r => ({ 學號: r['學號'], 班級: r['班級'], 座號: r['座號'], 姓名: r['姓名'], 身分證後四碼: r['身分證後四碼'] }));
 
   cache.put(cacheKey, JSON.stringify(students), CACHE_TTL_SECONDS);
   return students;
@@ -120,14 +121,25 @@ function classesForLevel_(level) {
   return { ok: true, level: level, classes: classes };
 }
 
-/* ---------- lookup：輸入學號時，即時查這一個學生的班級／座號／姓名 ---------- */
-function lookupStudent_(level, sid) {
+/* ---------- lookup：輸入學號 + 身分證後四碼時，查這一個學生的班級／座號／姓名，
+ * 並比對身分證後四碼做身分驗證。
+ * 回傳三種狀態：
+ *   found=false                查無此學號 → 前端走手動填寫備援
+ *   found=true, verified=false 學號存在但身分證後四碼不符 → 前端顯示錯誤，不給資料、不給手動備援
+ *   found=true, verified=true  兩者都對 → 回傳學生資料 */
+function lookupStudent_(level, sid, idLast4) {
   if (!level) return { ok: false, error: '缺少 level 參數' };
   if (!sid) return { ok: false, error: '缺少學號' };
   const target = String(sid).trim();
   const student = getStudentsForLevel_(level).find(s => String(s['學號']) === target);
   if (!student) return { ok: true, found: false };
-  return { ok: true, found: true, 學號: student['學號'], 班級: student['班級'], 座號: student['座號'], 姓名: student['姓名'] };
+
+  const expected = String(student['身分證後四碼'] || '').trim();
+  const actual = String(idLast4 || '').trim();
+  if (!expected || expected !== actual) {
+    return { ok: true, found: true, verified: false };
+  }
+  return { ok: true, found: true, verified: true, 學號: student['學號'], 班級: student['班級'], 座號: student['座號'], 姓名: student['姓名'] };
 }
 
 /** 手動清除快取：改了 Students 分頁後想馬上生效，在編輯器選這個函式執行即可。 */
@@ -182,13 +194,22 @@ function submitResponse_(payload) {
     return { ok: false, error: '志願不可重複' };
   }
 
-  // 伺服器端再次確認選填時間窗，避免有人繞過前端的時間卡控
+  // 伺服器端再次確認選填時間窗，避免有人繞過前端的時間卡控。
+  // 正式選填（SELECT_OPEN/CLOSE）跟補選（MAKEUP_OPEN/CLOSE）是兩組獨立的時間窗，
+  // 只要現在落在「其中一個」窗口內就放行；兩組都沒設定或都不在窗內才擋下來。
   const cfg = readObjects_(SHEETS.CONFIG).filter(r => String(r.level) === level)[0];
-  if (cfg && cfg.SELECT_OPEN && cfg.SELECT_CLOSE) {
+  if (cfg) {
     const now = new Date();
-    const open = new Date(toIso_(cfg.SELECT_OPEN));
-    const close = new Date(toIso_(cfg.SELECT_CLOSE));
-    if (now < open || now >= close) {
+    const inWindow = (openVal, closeVal) => {
+      if (!openVal || !closeVal) return null; // 該組窗口未設定，不列入判斷
+      const open = new Date(toIso_(openVal));
+      const close = new Date(toIso_(closeVal));
+      return now >= open && now < close;
+    };
+    const inSelectWindow = inWindow(cfg.SELECT_OPEN, cfg.SELECT_CLOSE);
+    const inMakeupWindow = inWindow(cfg.MAKEUP_OPEN, cfg.MAKEUP_CLOSE);
+    const anyWindowConfigured = inSelectWindow !== null || inMakeupWindow !== null;
+    if (anyWindowConfigured && !inSelectWindow && !inMakeupWindow) {
       return { ok: false, error: '目前不在選填開放時間內' };
     }
   }
