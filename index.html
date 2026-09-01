@@ -35,8 +35,8 @@
   .identity-summary.not-found { background: #fbeee8; color: var(--danger); }
   .manual-box { margin-top: 6px; padding: 14px 14px 4px; border: 1.5px dashed var(--accent); border-radius: 10px; }
   .manual-hint { margin: 0 0 4px; font-size: 13.5px; color: var(--accent); font-weight: 700; }
-  .link-btn { display: block; margin: 6px 0 0; padding: 0; border: none; background: none; font-family: inherit; font-size: 13px; color: var(--brand-dark); text-decoration: underline; cursor: pointer; }
-  .link-btn:hover { color: var(--accent); }
+  .optional-hint { font-weight: 400; font-size: 12.5px; color: var(--ink-soft); margin-left: 4px; }
+  .not-verified-hint { font-size: 12.5px; color: var(--accent); }
   .mode-select { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .back-level { display: inline-block; font-size: 13px; color: var(--ink-soft); text-decoration: none; margin: -8px 0 14px; }
   .back-level:hover { color: var(--brand); text-decoration: underline; }
@@ -101,6 +101,12 @@
   .window-note.after { background: #fbeee8; color: var(--danger); border: 1px solid #e3b7a0; }
   .query-status { font-size: 14px; padding: 10px 0; }
   .query-loading { color: var(--ink-soft); font-size: 14px; }
+  .query-record { margin: 8px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; }
+  .query-record-wrap.latest .query-record { border: 1.5px solid var(--brand); background: #f3f8f4; }
+  .query-record-time { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 8px; }
+  .query-record-note { font-size: 13px; color: var(--ink-soft); margin-top: 10px; white-space: pre-wrap; }
+  .query-history { margin-top: 10px; }
+  .query-history summary { cursor: pointer; font-size: 13.5px; color: var(--brand-dark); font-weight: 700; padding: 6px 0; }
   footer { text-align: center; font-size: 12px; color: #9aa39a; margin-top: 30px; }
   .hidden { display: none !important; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -183,9 +189,8 @@
     <label for="input-sid">學號</label>
     <input type="text" id="input-sid" inputmode="numeric" placeholder="請輸入你的學號" autocomplete="off">
 
-    <label for="input-idlast4">身分證後四碼</label>
+    <label for="input-idlast4">身分證後四碼<span id="idlast4-optional-hint" class="optional-hint"></span></label>
     <input type="text" id="input-idlast4" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="請輸入身分證後四碼" autocomplete="off">
-    <button type="button" class="link-btn" id="btn-forgot-id">忘記身分證後四碼？改用手動確認</button>
 
     <div class="identity-summary" id="identity-found"></div>
 
@@ -282,7 +287,7 @@ const LEVEL_INFO = {
     excludedNote: "⚠️ 科展研究社不開放於本系統選填，僅限指導老師另行通知之特定學生報名，如有疑問請洽指導老師方思堯老師。",
     infoLink: { href: "https://reurl.cc/Z8VNWa", text: "📎 查看田中高中(國中部) 115學年度上學期社團詳細簡介" },
     notices: ["線上選填時間：<b>09/04(五) 17:00 起至 09/06(日) 24:00 截止</b>，送出後即無法更改，請務必確認清楚再送出。", "選填對象：七、八年級同學皆須選填（體育班除外）。", "一人可填 9 個志願，請依喜好程度排序且不得重複；建議把第 8、9 志願當作「保險志願」，以免全部落選、影響自身權益。重複選填視為選填有問題，需參加補選。", "補選時間：<b>09/07(一) 00:00～20:00</b>，請於期限內用本系統首頁的「補選」按鈕上網重新選填；未於期限內完成補選者，將由學務處逕行安排分配社團。", "上課日期共八次，皆為星期一第六、七節，16:05 準時放學：<br>09/18、10/02、10/16、10/30、11/13、11/27、12/11、116/01/08。", "射箭社、武術社、袋棍球社將前往龍江館室外上課，16:05 於龍江館放學，請家長與學生約定好接送位置。龍江館緊急聯絡電話：04-8746062。", "部分社團須繳交社費或材料費，請留意各社團標示的費用（已列在下方社團清單中）。", "社團課程結束後，請恢復借用班級原貌，不得擅動他人物品；原班導師如發現異狀，請告知學務處。"],
-    clubs: [{"id": 1, "name": "吉他社", "teacher": "張書杰老師", "cap": 20, "fee": "0元", "location": "701教室", "intro": "透過原聲吉他演奏與伴奏，掌握旋律、節奏與和聲；深化音色與律動敏感度，靈活展現吉他獨特魅力，達成自彈自唱與吉他演奏的目標。"}, {"id": 2, "name": "鉤針編織社", "teacher": "黃瀞誼老師", "cap": 20, "fee": "275～325元", "location": "702教室", "intro": "一支鉤針、一張織圖、一份興趣，在鉤織過程中靜心，在專注中完成手作的夢想。歡迎一起進入鉤織的世界，豐富彼此的生活。"}, {"id": 3, "name": "烏克麗麗社", "teacher": "李冠慶老師", "cap": 20, "fee": "100元", "location": "703教室", "intro": "每個人都可能有小小的音樂夢，但礙於經費和時間有所限制而怯步。而烏克麗麗價格較低，容易上手，可以彈奏出吉他及電吉他的音效，且無環境上的限制，希望能讓曾擁有音樂夢，卻還無法達成的人能實現夢想。"}, {"id": 4, "name": "越南文化社", "teacher": "丁氏雲燕老師", "cap": 20, "fee": "150元", "location": "704教室", "intro": "越南語教學和 DIY 和美食分享"}, {"id": 5, "name": "書法藝術社", "teacher": "林孟輝老師", "cap": 20, "fee": "0～200元", "location": "學扶教室", "intro": "一、介紹書法文字及歷代字帖、作品賞析。\n二、臨習字帖、傳統名家作品及自行創作。\n三、創新書法結合手機拍照，呈現書法的多樣貌。"}, {"id": 6, "name": "古早童玩社", "teacher": "許美玲", "cap": 16, "fee": "未標示", "location": "706教室", "intro": "古早童玩社致力保存傳統童玩文化，透過體驗、教學與互動遊戲，讓大小朋友感受古早童玩的樂趣與世代傳承精神。"}, {"id": 7, "name": "動漫社", "teacher": "李一芳老師", "cap": 20, "fee": "0元", "location": "707教室", "intro": "增進社員動漫知識、培養手繪技巧、激發創作潛能、分享與鑑賞動漫作品、以及推廣動漫相關活動。"}, {"id": 8, "name": "韓瘋 K-POP MV 社", "teacher": "李怡萱老師", "cap": 20, "fee": "0元", "location": "藝能教室", "intro": "熱愛舞蹈、想跳最夯韓團的舞步？這裡就是你的舞台！K-pop 社團帶你一起學習流行韓團舞蹈，不只跳舞，我們還會一起學習基本節奏感、隊形變化、鏡面排練，甚至拍攝帥氣的練舞影片，留下青春紀錄📸✨\n不需要有舞蹈基礎，只要你有熱情、敢挑戰，歡迎加入我們！\nLet’s K-pop！讓全校看到你的閃耀！"}, {"id": 9, "name": "卡拉 OK", "teacher": "吳俊辰老師", "cap": 20, "fee": "50元", "location": "社群教室", "intro": "以輕鬆的氛圍讓學生歡唱，進而提升學生的唱歌技巧、舞台表現技巧及團隊協作能力。"}, {"id": 10, "name": "小提琴弦樂社", "teacher": "蘇靜玉老師", "cap": 20, "fee": "360元", "location": "音樂教室2F", "intro": "學習弦樂團之女王小提琴能開發智力、提高專注力、培養耐心和毅力、增強協調能力、提升音樂鑑賞力，以及舒緩壓力、提升自信心和社交能力。"}, {"id": 11, "name": "管樂社", "teacher": "邱袖恩老師", "cap": 15, "fee": "0元", "location": "音樂教室3F", "intro": "在於提升學員的音樂技巧，更重視培養學生的團隊精神、專業態度和自我表現的潛力。希望學員們能在音樂學習中發現自我，並帶著健康積極的心態，邁向更高的音樂成就。"}, {"id": 12, "name": "木工玩樂趣社", "teacher": "黃圳傑老師", "cap": 20, "fee": "500元", "location": "美術教室", "intro": "木工玩樂趣社團，以輕鬆、趣味的方式，帶領學生體驗木工製作，從基礎工具操作到成品完成，逐步提升學生的創意、專注與手作能力，課程內容兼具實用性與美感設計，並結合生活應用，打造寓教於樂的學習氛圍。"}, {"id": 13, "name": "客家文化社", "teacher": "李秀麗老師", "cap": 20, "fee": "200元", "location": "童軍教室", "intro": "想認識不一樣的台灣文化？想玩、想吃、想唱、想做，還想學點有趣的新技能？客家文化社等你來尞！\n在這裡，不用怕「客語很難」，我們用輕鬆、好玩、生活化的方式認識客家文化！一起學客語、唱客家歌、玩客家童玩，體驗客家美食與 DIY，探索客家聚落與在地故事，還會結合 AI、雙語、音樂、遊戲與創意活動，讓傳統文化變得超有趣！\n我們會玩：客語歌曲×音樂、生活客語×趣味挑戰、客家美食×DIY實作、客家花布×創意手作、團康遊戲×闖關活動、AI×客家文化創意、在地走讀×認識客庄。\n不管你會不會客語、是不是客家人，都歡迎來！因為文化不是只有「學」，更是一起玩、一起體驗、一起分享。"}, {"id": 14, "name": "射箭社", "teacher": "蕭耀宗老師、謝昊融教練", "cap": 20, "fee": "0元", "location": "龍江館－射箭場", "intro": "射箭運動是我國重點發展項目，可提升學生上肢肌力與專注力，並進一步了解國際賽事規則與提升對射箭相關知識的了解。"}, {"id": 15, "name": "武術社", "teacher": "黃孝恩老師、陳煒強教練", "cap": 20, "fee": "0元", "location": "龍江館－活動中心", "intro": "武術散打及套路"}, {"id": 16, "name": "籃球社", "teacher": "李昆沅老師", "cap": 20, "fee": "0元", "location": "籃球場", "intro": "本社團為了發揚籃球運動之精神，提倡校內運動之風氣，培養個人興趣發展並啟發潛在能力，並找尋對籃球有興趣之同學未來直升高中部體育班。"}, {"id": 17, "name": "高爾夫練習社", "teacher": "張麗幀教練、迪秧教練", "cap": 20, "fee": "0元", "location": "操場", "intro": "對高爾夫球有著憧憬嗎？看著那姿態優美的揮桿動作心生嚮往嗎？不要猶豫了！加入高爾夫練習社就對了！！"}, {"id": 18, "name": "袋棍球社", "teacher": "許晉豪老師", "cap": 20, "fee": "50元", "location": "龍江館", "intro": "袋棍球（Lacrosse）是一項結合速度、技巧與團隊合作的運動，起源於北美原住民，被譽為「世界上最快的草地運動」。在比賽中，球員利用特製的球桿將球傳遞、控球並射門，攻防節奏快、趣味性高，能同時培養反應力、協調性與團隊精神。想體驗「世界最快的草地運動」嗎？零基礎也能奔跑全場、帥氣進球！"}],
+    clubs: [{"id": 2, "name": "鉤針編織社", "teacher": "黃瀞誼老師", "cap": 20, "fee": "275～325元", "location": "702教室", "intro": "一支鉤針、一張織圖、一份興趣，在鉤織過程中靜心，在專注中完成手作的夢想。歡迎一起進入鉤織的世界，豐富彼此的生活。"}, {"id": 3, "name": "烏克麗麗社", "teacher": "李冠慶老師", "cap": 20, "fee": "100元", "location": "703教室", "intro": "每個人都可能有小小的音樂夢，但礙於經費和時間有所限制而怯步。而烏克麗麗價格較低，容易上手，可以彈奏出吉他及電吉他的音效，且無環境上的限制，希望能讓曾擁有音樂夢，卻還無法達成的人能實現夢想。"}, {"id": 4, "name": "越南文化社", "teacher": "丁氏雲燕老師", "cap": 20, "fee": "150元", "location": "704教室", "intro": "越南語教學和 DIY 和美食分享"}, {"id": 5, "name": "書法藝術社", "teacher": "林孟輝老師", "cap": 20, "fee": "0～200元", "location": "學扶教室", "intro": "一、介紹書法文字及歷代字帖、作品賞析。\n二、臨習字帖、傳統名家作品及自行創作。\n三、創新書法結合手機拍照，呈現書法的多樣貌。"}, {"id": 6, "name": "古早童玩社", "teacher": "許美玲", "cap": 16, "fee": "未標示", "location": "706教室", "intro": "古早童玩社致力保存傳統童玩文化，透過體驗、教學與互動遊戲，讓大小朋友感受古早童玩的樂趣與世代傳承精神。"}, {"id": 7, "name": "動漫社", "teacher": "李一芳老師", "cap": 20, "fee": "0元", "location": "707教室", "intro": "增進社員動漫知識、培養手繪技巧、激發創作潛能、分享與鑑賞動漫作品、以及推廣動漫相關活動。"}, {"id": 8, "name": "韓瘋 K-POP MV 社", "teacher": "李怡萱老師", "cap": 20, "fee": "0元", "location": "藝能教室", "intro": "熱愛舞蹈、想跳最夯韓團的舞步？這裡就是你的舞台！K-pop 社團帶你一起學習流行韓團舞蹈，不只跳舞，我們還會一起學習基本節奏感、隊形變化、鏡面排練，甚至拍攝帥氣的練舞影片，留下青春紀錄📸✨\n不需要有舞蹈基礎，只要你有熱情、敢挑戰，歡迎加入我們！\nLet’s K-pop！讓全校看到你的閃耀！"}, {"id": 9, "name": "卡拉 OK", "teacher": "吳俊辰老師", "cap": 20, "fee": "50元", "location": "社群教室", "intro": "以輕鬆的氛圍讓學生歡唱，進而提升學生的唱歌技巧、舞台表現技巧及團隊協作能力。"}, {"id": 10, "name": "小提琴弦樂社", "teacher": "蘇靜玉老師", "cap": 20, "fee": "360元", "location": "音樂教室2F", "intro": "學習弦樂團之女王小提琴能開發智力、提高專注力、培養耐心和毅力、增強協調能力、提升音樂鑑賞力，以及舒緩壓力、提升自信心和社交能力。"}, {"id": 11, "name": "管樂社", "teacher": "邱袖恩老師", "cap": 15, "fee": "0元", "location": "音樂教室3F", "intro": "在於提升學員的音樂技巧，更重視培養學生的團隊精神、專業態度和自我表現的潛力。希望學員們能在音樂學習中發現自我，並帶著健康積極的心態，邁向更高的音樂成就。"}, {"id": 12, "name": "木工玩樂趣社", "teacher": "黃圳傑老師", "cap": 20, "fee": "500元", "location": "美術教室", "intro": "木工玩樂趣社團，以輕鬆、趣味的方式，帶領學生體驗木工製作，從基礎工具操作到成品完成，逐步提升學生的創意、專注與手作能力，課程內容兼具實用性與美感設計，並結合生活應用，打造寓教於樂的學習氛圍。"}, {"id": 13, "name": "客家文化社", "teacher": "李秀麗老師", "cap": 20, "fee": "200元", "location": "童軍教室", "intro": "想認識不一樣的台灣文化？想玩、想吃、想唱、想做，還想學點有趣的新技能？客家文化社等你來尞！\n在這裡，不用怕「客語很難」，我們用輕鬆、好玩、生活化的方式認識客家文化！一起學客語、唱客家歌、玩客家童玩，體驗客家美食與 DIY，探索客家聚落與在地故事，還會結合 AI、雙語、音樂、遊戲與創意活動，讓傳統文化變得超有趣！\n我們會玩：客語歌曲×音樂、生活客語×趣味挑戰、客家美食×DIY實作、客家花布×創意手作、團康遊戲×闖關活動、AI×客家文化創意、在地走讀×認識客庄。\n不管你會不會客語、是不是客家人，都歡迎來！因為文化不是只有「學」，更是一起玩、一起體驗、一起分享。"}, {"id": 14, "name": "射箭社", "teacher": "蕭耀宗老師、謝昊融教練", "cap": 20, "fee": "0元", "location": "龍江館－射箭場", "intro": "射箭運動是我國重點發展項目，可提升學生上肢肌力與專注力，並進一步了解國際賽事規則與提升對射箭相關知識的了解。"}, {"id": 15, "name": "武術社", "teacher": "黃孝恩老師、陳煒強教練", "cap": 20, "fee": "0元", "location": "龍江館－活動中心", "intro": "武術散打及套路"}, {"id": 16, "name": "籃球社", "teacher": "李昆沅老師", "cap": 20, "fee": "0元", "location": "籃球場", "intro": "本社團為了發揚籃球運動之精神，提倡校內運動之風氣，培養個人興趣發展並啟發潛在能力，並找尋對籃球有興趣之同學未來直升高中部體育班。"}, {"id": 17, "name": "高爾夫練習社", "teacher": "張麗幀教練、迪秧教練", "cap": 20, "fee": "0元", "location": "操場", "intro": "對高爾夫球有著憧憬嗎？看著那姿態優美的揮桿動作心生嚮往嗎？不要猶豫了！加入高爾夫練習社就對了！！"}, {"id": 18, "name": "袋棍球社", "teacher": "許晉豪老師", "cap": 20, "fee": "50元", "location": "龍江館", "intro": "袋棍球（Lacrosse）是一項結合速度、技巧與團隊合作的運動，起源於北美原住民，被譽為「世界上最快的草地運動」。在比賽中，球員利用特製的球桿將球傳遞、控球並射門，攻防節奏快、趣味性高，能同時培養反應力、協調性與團隊精神。想體驗「世界最快的草地運動」嗎？零基礎也能奔跑全場、帥氣進球！"}],
     SELECT_OPEN: "2026-09-04T17:00:00",
     SELECT_CLOSE: "2026-09-07T00:00:00",
     MAKEUP_OPEN: "2026-09-07T00:00:00",
@@ -364,7 +369,9 @@ function selectLevel(levelKey) {
   const L = LEVEL_INFO[levelKey];
   currentLevelData = L;
   CLUBS = L.clubs;
-  CONFIG = { SELECT_OPEN: L.SELECT_OPEN, SELECT_CLOSE: L.SELECT_CLOSE };
+  // 先用 index.html 內建的固定值墊著，讓畫面能立刻顯示；實際會不會卡控，
+  // 等下面 refreshLiveConfig() 抓到 Config 分頁的即時資料後就會覆蓋掉這裡的值。
+  CONFIG = { SELECT_OPEN: L.SELECT_OPEN, SELECT_CLOSE: L.SELECT_CLOSE, MAKEUP_OPEN: L.MAKEUP_OPEN, MAKEUP_CLOSE: L.MAKEUP_CLOSE };
 
   stepLevel.classList.add('hidden');
   backLevel.classList.remove('hidden');
@@ -401,6 +408,7 @@ function selectLevel(levelKey) {
     levelEmptyNote.classList.add('hidden');
     applyWindowState();
     applyMakeupWindowState();
+    refreshLiveConfig(); // 背景即時抓 Config 分頁最新的時間窗，抓到後會重新套用上面兩個狀態
   }
 }
 
@@ -419,9 +427,49 @@ function backToLevel() {
   state = { mode: null, student: null, ranking: [] };
 }
 
+/* ---------- Config 分頁即時讀取（選填／補選開放時間都由這裡即時更新，
+   不用改 index.html 重新部署——直接改 Google Sheets 的 Config 分頁就會生效） ---------- */
+let configFetchSeq = 0;
+async function refreshLiveConfig() {
+  if (!currentLevel) return;
+  const level = currentLevel;
+  const seq = ++configFetchSeq;
+  try {
+    const res = await fetch(`${WEBAPP_URL}?action=config&level=${encodeURIComponent(level)}`);
+    const data = await res.json();
+    if (seq !== configFetchSeq || level !== currentLevel) return; // 使用者已經切到別的階段，這次結果作廢
+    if (data.ok && data.found) {
+      // 只覆蓋 Config 分頁裡真的有值的欄位，沒填的欄位維持沿用 index.html 內建的固定值當備援。
+      if (data.SELECT_OPEN) CONFIG.SELECT_OPEN = data.SELECT_OPEN;
+      if (data.SELECT_CLOSE) CONFIG.SELECT_CLOSE = data.SELECT_CLOSE;
+      if (data.MAKEUP_OPEN) CONFIG.MAKEUP_OPEN = data.MAKEUP_OPEN;
+      if (data.MAKEUP_CLOSE) CONFIG.MAKEUP_CLOSE = data.MAKEUP_CLOSE;
+    }
+  } catch (err) {
+    // 抓不到就沿用目前的值（第一次是 index.html 內建的固定值），不擋畫面。
+  }
+  if (currentLevelData && currentLevelData.clubs.length) {
+    applyWindowState();
+    applyMakeupWindowState();
+  }
+}
+// 每 30 秒重抓一次，這樣工作人員改了 Config 分頁的時間，頁面開著的學生最多 30 秒後也會反映。
+setInterval(refreshLiveConfig, 30000);
+
+/** 把 ISO 時間字串轉成好讀的顯示文字，例如 "09/07(一) 00:00"。轉不出來就回傳空字串。 */
+function formatDateTimeLabel_(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const week = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}(${week}) ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /* ---------- 選填時間窗口 ---------- */
 function selectionWindowState() {
   if (DISABLE_TIME_WINDOW) return 'open';
+  if (!CONFIG || !CONFIG.SELECT_OPEN || !CONFIG.SELECT_CLOSE) return 'closed';
   const now = new Date();
   const open = new Date(CONFIG.SELECT_OPEN);
   const close = new Date(CONFIG.SELECT_CLOSE);
@@ -443,32 +491,41 @@ function applyWindowState() {
     modeFillBtn.disabled = true;
     modeFillBtn.classList.add('disabled');
     windowNote.classList.add('after');
-    windowNote.textContent = `線上選填已於 09/06(日) 24:00 截止，無法再填寫。如尚未選填或選填有問題，請於 ${currentLevelData.MAKEUP_LABEL || '補選時段'} 使用下方「補選」按鈕重新選填。`;
+    const makeupLabel = formatDateTimeLabel_(CONFIG.MAKEUP_OPEN) && formatDateTimeLabel_(CONFIG.MAKEUP_CLOSE)
+      ? `${formatDateTimeLabel_(CONFIG.MAKEUP_OPEN)}～${formatDateTimeLabel_(CONFIG.MAKEUP_CLOSE)}`
+      : (currentLevelData.MAKEUP_LABEL || '補選時段');
+    windowNote.textContent = `線上選填已於 09/06(日) 24:00 截止，無法再填寫。如尚未選填或選填有問題，請於 ${makeupLabel} 使用下方「補選」按鈕重新選填。`;
+  } else if (s === 'closed') {
+    modeFillBtn.disabled = true;
+    modeFillBtn.classList.add('disabled');
+    windowNote.classList.add('hidden');
   } else {
     modeFillBtn.disabled = false;
     modeFillBtn.classList.remove('disabled');
     windowNote.classList.add('hidden');
   }
 }
-setInterval(() => { if (currentLevelData && currentLevelData.clubs.length) applyWindowState(); }, 30000);
 
-/* ---------- 補選時間窗口（跟 SELECT_OPEN/CLOSE 分開的另一組時間，只開放當天 00:00～20:00，
-   由 Config 分頁的 MAKEUP_OPEN/MAKEUP_CLOSE 控制；DISABLE_TIME_WINDOW 測試開關同樣適用） ---------- */
+/* ---------- 補選時間窗口（跟 SELECT_OPEN/CLOSE 分開的另一組時間，由 CONFIG.MAKEUP_OPEN/MAKEUP_CLOSE
+   控制——這兩個值一開始是 index.html 內建的固定值，refreshLiveConfig() 抓到 Config 分頁的即時資料後
+   會覆蓋掉；DISABLE_TIME_WINDOW 測試開關同樣適用） ---------- */
 function makeupWindowState() {
   if (DISABLE_TIME_WINDOW) return 'open';
-  if (!currentLevelData || !currentLevelData.MAKEUP_OPEN || !currentLevelData.MAKEUP_CLOSE) return 'closed';
+  if (!CONFIG || !CONFIG.MAKEUP_OPEN || !CONFIG.MAKEUP_CLOSE) return 'closed';
   const now = new Date();
-  const open = new Date(currentLevelData.MAKEUP_OPEN);
-  const close = new Date(currentLevelData.MAKEUP_CLOSE);
+  const open = new Date(CONFIG.MAKEUP_OPEN);
+  const close = new Date(CONFIG.MAKEUP_CLOSE);
   if (now < open) return 'before';
   if (now >= close) return 'after';
   return 'open';
 }
 
 function applyMakeupWindowState() {
-  if (!currentLevelData) return;
+  if (!currentLevelData || !CONFIG) return;
   const s = makeupWindowState();
-  const label = currentLevelData.MAKEUP_LABEL || '補選時段';
+  const label = (formatDateTimeLabel_(CONFIG.MAKEUP_OPEN) && formatDateTimeLabel_(CONFIG.MAKEUP_CLOSE))
+    ? `${formatDateTimeLabel_(CONFIG.MAKEUP_OPEN)}～${formatDateTimeLabel_(CONFIG.MAKEUP_CLOSE)}`
+    : (currentLevelData.MAKEUP_LABEL || '補選時段');
   makeupWindowNote.classList.remove('hidden', 'before', 'after');
   if (s === 'before') {
     modeMakeupBtn.disabled = true;
@@ -490,7 +547,6 @@ function applyMakeupWindowState() {
     makeupWindowNote.classList.add('hidden');
   }
 }
-setInterval(() => { if (currentLevelData && currentLevelData.clubs.length) applyMakeupWindowState(); }, 30000);
 
 /* ---------- Mode select ---------- */
 const progressBar = document.getElementById('progress-bar');
@@ -547,7 +603,7 @@ document.getElementById('btn-back-identity-2').addEventListener('click', backToM
 /* ---------- Identity (學號 + 身分證後四碼查驗 + 手動備援) ---------- */
 const inputSid = document.getElementById('input-sid');
 const inputIdLast4 = document.getElementById('input-idlast4');
-const btnForgotId = document.getElementById('btn-forgot-id');
+const idLast4OptionalHint = document.getElementById('idlast4-optional-hint');
 const identityFound = document.getElementById('identity-found');
 const manualBox = document.getElementById('manual-box');
 const manualHint = document.getElementById('manual-hint');
@@ -556,8 +612,8 @@ const manName = document.getElementById('man-name');
 const btnIdentityNext = document.getElementById('btn-identity-next');
 
 let manualStudent = false;
-// 手動填寫是因為哪種情況觸發：null＝一般（已驗證）／'not_found'＝查無此學號／
-// 'forgot'＝學號存在但忘記身分證後四碼。送出時會依此在備註加註記，方便學務處事後核對。
+// 手動填寫／未驗證是因為哪種情況觸發：null＝一般（已驗證）／'not_found'＝查無此學號／
+// 'skipped'＝填寫模式下沒填身分證後四碼、略過驗證。送出時會依此在備註加註記，方便學務處事後核對。
 let idOverride = null;
 let sidLookupTimer = null;
 let sidLookupSeq = 0;
@@ -573,6 +629,8 @@ function resetIdentity() {
   idOverride = null;
   btnIdentityNext.disabled = true;
   state.student = null;
+  // 查詢模式一定要身分證後四碼；填寫/補選模式選填即可，在欄位旁標示清楚差異。
+  idLast4OptionalHint.textContent = state.mode === 'query' ? '（要繼續查詢紀錄必填）' : '（選填，不填也能繼續下一步）';
 }
 
 function refreshNextButton() {
@@ -600,14 +658,11 @@ function onIdentityInputChanged() {
   if (sidLookupTimer) clearTimeout(sidLookupTimer);
   if (!val) return;
 
-  // 學號查無此人時允許手動填寫（不需要身分證後四碼），但只要學號存在，
-  // 就一定要等身分證後四碼也輸入滿 4 碼才查詢／比對，避免還沒驗證就洩漏學生資料。
-  if (!idLast4) {
-    identityFound.innerHTML = '請繼續輸入身分證後四碼以完成驗證';
-    identityFound.classList.add('show');
-    return;
-  }
-  if (!/^\d{4}$/.test(idLast4)) {
+  // 只要有輸入學號，不管有沒有填身分證後四碼，都會查詢並顯示姓名。
+  // 身分證後四碼只影響「能不能繼續下一步」：
+  //   查詢我的選填紀錄一定要驗證通過才能繼續（避免任意輸入學號就查到別人的選填結果）；
+  //   填寫志願／補選則不填也能繼續下一步。
+  if (idLast4 && !/^\d{4}$/.test(idLast4)) {
     identityFound.innerHTML = '身分證後四碼須為 4 碼數字';
     identityFound.classList.add('show', 'not-found');
     return;
@@ -620,7 +675,8 @@ function onIdentityInputChanged() {
   sidLookupTimer = setTimeout(async () => {
     let data;
     try {
-      const url = `${WEBAPP_URL}?action=lookup&level=${encodeURIComponent(currentLevel)}&sid=${encodeURIComponent(val)}&idLast4=${encodeURIComponent(idLast4)}`;
+      const url = `${WEBAPP_URL}?action=lookup&level=${encodeURIComponent(currentLevel)}&sid=${encodeURIComponent(val)}`
+        + (idLast4 ? `&idLast4=${encodeURIComponent(idLast4)}` : '');
       const res = await fetch(url);
       data = await res.json();
       if (!data.ok) throw new Error(data.error || '查詢失敗');
@@ -638,8 +694,25 @@ function onIdentityInputChanged() {
       identityFound.classList.add('show');
       identityFound.classList.remove('not-found');
       btnIdentityNext.disabled = false;
+    } else if (data.found && data.skippedVerification) {
+      // 沒填身分證後四碼：一律先把姓名帶出來讓學生確認找對人，
+      // 查詢模式仍然不能繼續（要驗證通過才能看選填紀錄），填寫/補選模式則可以直接繼續下一步。
+      const student = { 學號: data.學號, 班級: data.班級, 座號: data.座號, 姓名: data.姓名 };
+      const nameLine = `已找到：<b>${data.班級} ${data.座號}號 ${data.姓名}</b>（學號 ${data.學號}）`;
+      if (state.mode === 'query') {
+        identityFound.innerHTML = `${nameLine}<br><span class="not-verified-hint">請輸入身分證後四碼以查詢選填紀錄</span>`;
+        identityFound.classList.add('show');
+        identityFound.classList.remove('not-found');
+      } else {
+        idOverride = 'skipped';
+        state.student = student;
+        identityFound.innerHTML = `${nameLine}<br><span class="not-verified-hint">未填寫身分證後四碼，未驗證身分</span>`;
+        identityFound.classList.add('show');
+        identityFound.classList.remove('not-found');
+        btnIdentityNext.disabled = false;
+      }
     } else if (data.found && !data.verified) {
-      identityFound.innerHTML = `學號「${val}」的身分證後四碼不正確，請重新確認；若忘記了，可點選下方「忘記身分證後四碼？改用手動確認」。`;
+      identityFound.innerHTML = `學號「${val}」的身分證後四碼不正確，請重新確認。`;
       identityFound.classList.add('show', 'not-found');
     } else {
       enterManualMode('not_found', `查無學號「${val}」，請在下方手動填寫資料`, '查無此學號，請手動填寫以下資料：');
@@ -647,8 +720,7 @@ function onIdentityInputChanged() {
   }, 350);
 }
 
-/** 切到手動填寫模式（查無學號 / 忘記身分證後四碼共用）。
- * reason 會記在 idOverride，送出時用來在備註加註記給學務處參考。 */
+/** 切到手動填寫模式（查無學號）。reason 會記在 idOverride，送出時用來在備註加註記給學務處參考。 */
 async function enterManualMode(reason, summaryHtml, hintText) {
   idOverride = reason;
   manualStudent = true;
@@ -660,18 +732,6 @@ async function enterManualMode(reason, summaryHtml, hintText) {
   refreshManualClasses(await getClasses(currentLevel));
   refreshNextButton();
 }
-
-btnForgotId.addEventListener('click', () => {
-  const val = inputSid.value.trim();
-  if (!val) {
-    identityFound.innerHTML = '請先輸入學號，再點選「忘記身分證後四碼」。';
-    identityFound.classList.add('show', 'not-found');
-    return;
-  }
-  if (sidLookupTimer) clearTimeout(sidLookupTimer);
-  sidLookupSeq++; // 讓任何還在跑的 lookup 請求結果作廢，避免回來時蓋掉手動模式畫面
-  enterManualMode('forgot', '', '忘記身分證後四碼，請改用下方資料手動確認身分（送出後將由學務處人工核對）：');
-});
 
 inputSid.addEventListener('input', onIdentityInputChanged);
 inputIdLast4.addEventListener('input', onIdentityInputChanged);
@@ -777,11 +837,11 @@ document.getElementById('btn-back-clubs').addEventListener('click', () => {
   setProgress(1);
 });
 
-// 手動填寫（查無學號／忘記身分證後四碼）沒有經過系統驗證，送出時在備註前面加註記，
-// 方便學務處事後核對這筆資料是不是本人填寫的。
+// 手動填寫（查無學號）／略過身分證後四碼驗證，都沒有經過系統驗證，
+// 送出時在備註前面加註記，方便學務處事後核對這筆資料是不是本人填寫的。
 const ID_OVERRIDE_TAGS = {
   not_found: '[查無學號，手動確認身分]',
-  forgot: '[忘記身分證後四碼，手動確認身分]'
+  skipped: '[未填寫身分證後四碼，未驗證身分]'
 };
 
 document.getElementById('btn-submit').addEventListener('click', async () => {
@@ -824,6 +884,24 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
 });
 
 /* ---------- Query mode ---------- */
+function formatQueryTime_(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderQueryRecord_(record) {
+  const rowsHtml = record.choices.map((name, i) => `<tr><td class="k">第${i + 1}志願</td><td>${name || '（無資料）'}</td></tr>`).join('');
+  const noteHtml = record.note ? `<div class="query-record-note">備註：${record.note}</div>` : '';
+  return `<div class="query-record">
+    <div class="query-record-time">送出時間：${formatQueryTime_(record.updatedAt)}</div>
+    <table class="confirm">${rowsHtml}</table>
+    ${noteHtml}
+  </div>`;
+}
+
 async function runQuery() {
   const body = document.getElementById('query-body');
   const s = state.student;
@@ -837,8 +915,27 @@ async function runQuery() {
       body.innerHTML = `<p class="query-status">查無 <b>${s.姓名}</b>（學號 ${s.學號}）的選填紀錄，可能還沒送出。</p>`;
       return;
     }
-    const rowsHtml = data.choices.map((name, i) => `<tr><td class="k">第${i+1}志願</td><td>${name || '（無資料）'}</td></tr>`).join('');
-    body.innerHTML = `<p class="query-status">${s.姓名}（${s.班級} ${s.座號}號）目前的選填紀錄：</p><table class="confirm">${rowsHtml}</table>`;
+
+    // records 是新版後端才有的欄位（由舊到新排序）；萬一線上還在跑舊版 Code.gs 沒有這個欄位，
+    // 退回只用 choices/updatedAt 這幾個舊欄位組一筆資料，畫面一樣看得到最新結果，只是沒有歷史。
+    const records = (data.records && data.records.length)
+      ? data.records
+      : [{ choices: data.choices, note: data.note, updatedAt: data.updatedAt }];
+
+    const latest = records[records.length - 1];
+    const history = records.slice(0, -1).reverse(); // 由新到舊列出「最新那一筆以外」的歷史紀錄
+
+    let html = `<p class="query-status">${s.姓名}（${s.班級} ${s.座號}號）目前有效的選填紀錄：</p>`;
+    html += `<div class="query-record-wrap latest">${renderQueryRecord_(latest)}</div>`;
+
+    if (history.length) {
+      html += `<details class="query-history">
+        <summary>查看歷史送出紀錄（共送出 ${records.length} 次，另有 ${history.length} 次較早的紀錄）</summary>
+        ${history.map(renderQueryRecord_).join('')}
+      </details>`;
+    }
+
+    body.innerHTML = html;
   } catch (e) {
     body.innerHTML = `<p class="query-status">查詢失敗，請稍後再試或聯絡系統管理者。（${e.message || e}）</p>`;
   }

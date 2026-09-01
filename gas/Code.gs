@@ -41,6 +41,9 @@ function doGet(e) {
     if (action === 'query') {
       return jsonOut_(queryResponse_(e.parameter.level, e.parameter.sid));
     }
+    if (action === 'config') {
+      return jsonOut_(configForLevel_(e.parameter.level));
+    }
     return jsonOut_({ ok: false, error: '未知的 action：' + action });
   } catch (err) {
     return jsonOut_({ ok: false, error: String(err) });
@@ -121,6 +124,24 @@ function classesForLevel_(level) {
   return { ok: true, level: level, classes: classes };
 }
 
+/** config：讓前端可以即時讀到 Config 分頁目前設定的選填／補選開放時間，
+ * 不用把時間寫死在 index.html 裡才能生效——改 Config 分頁就會立刻反映在畫面上
+ * （「補選」按鈕能不能按之類）。只回傳時間窗相關欄位，不含 excludedNote/infoLink
+ * 這些已經固定寫在前端 LEVEL_INFO 的內容。 */
+function configForLevel_(level) {
+  if (!level) return { ok: false, error: '缺少 level 參數' };
+  const cfg = readObjects_(SHEETS.CONFIG).filter(r => String(r.level) === level)[0];
+  if (!cfg) return { ok: true, found: false };
+  return {
+    ok: true,
+    found: true,
+    SELECT_OPEN: toIso_(cfg.SELECT_OPEN),
+    SELECT_CLOSE: toIso_(cfg.SELECT_CLOSE),
+    MAKEUP_OPEN: toIso_(cfg.MAKEUP_OPEN),
+    MAKEUP_CLOSE: toIso_(cfg.MAKEUP_CLOSE)
+  };
+}
+
 /** 身分證後四碼可能有前導 0（例如 0023）。Students 分頁的儲存格如果不是「純文字」格式，
  * 手動輸入 0023 會被 Sheets 自動當數字存成 23，讀回來就變成 "23" 而不是 "0023"；
  * 這裡統一補回 4 碼再比對，避免純粹因為儲存格格式問題就誤判驗證失敗。
@@ -131,12 +152,15 @@ function normalizeIdLast4_(v) {
   return /^\d{1,4}$/.test(s) ? s.padStart(4, '0') : s;
 }
 
-/* ---------- lookup：輸入學號 + 身分證後四碼時，查這一個學生的班級／座號／姓名，
- * 並比對身分證後四碼做身分驗證。
- * 回傳三種狀態：
- *   found=false                查無此學號 → 前端走手動填寫備援
- *   found=true, verified=false 學號存在但身分證後四碼不符 → 前端顯示錯誤，不給資料、不給手動備援
- *   found=true, verified=true  兩者都對 → 回傳學生資料 */
+/* ---------- lookup：輸入學號（＋可選的身分證後四碼）時，查這一個學生的班級／座號／姓名，
+ * 有給身分證後四碼的話會比對做身分驗證。
+ * 回傳四種狀態：
+ *   found=false                     查無此學號 → 前端走手動填寫備援
+ *   found=true, verified=false      有給身分證後四碼但不符 → 前端顯示錯誤，不給資料、不給手動備援
+ *   found=true, skippedVerification 沒有給身分證後四碼 → 略過驗證，直接回傳資料
+ *                                   （查詢我的選填紀錄由前端擋掉，不會用這個狀態；
+ *                                   只有填寫志願／補選允許在沒有身分證後四碼的情況下繼續）
+ *   found=true, verified=true       兩者都對 → 回傳學生資料 */
 function lookupStudent_(level, sid, idLast4) {
   if (!level) return { ok: false, error: '缺少 level 參數' };
   if (!sid) return { ok: false, error: '缺少學號' };
@@ -144,8 +168,12 @@ function lookupStudent_(level, sid, idLast4) {
   const student = getStudentsForLevel_(level).find(s => String(s['學號']) === target);
   if (!student) return { ok: true, found: false };
 
-  const expected = normalizeIdLast4_(student['身分證後四碼']);
   const actual = normalizeIdLast4_(idLast4);
+  if (!actual) {
+    return { ok: true, found: true, skippedVerification: true, 學號: student['學號'], 班級: student['班級'], 座號: student['座號'], 姓名: student['姓名'] };
+  }
+
+  const expected = normalizeIdLast4_(student['身分證後四碼']);
   if (!expected || expected !== actual) {
     return { ok: true, found: true, verified: false };
   }
@@ -161,28 +189,43 @@ function clearCache() {
   Logger.log('快取已清除');
 }
 
-/* ---------- query：查詢單一學號目前送出的志願（只回傳這個學生自己的資料） ---------- */
+/* ---------- query：查詢單一學號送出過的志願（只回傳這個學生自己的資料，
+ * 現在會列出所有送出歷史，不是只有最新一筆） ---------- */
 function queryResponse_(level, sid) {
   if (!sid) return { ok: false, error: '缺少學號' };
   const rows = readObjects_(SHEETS.RESPONSES).filter(r => String(r.sid).trim() === String(sid).trim());
   if (!rows.length) return { ok: true, found: false };
 
-  const last = rows[rows.length - 1];
-  const choices = [];
-  for (let i = 1; i <= REQUIRED_CHOICES; i++) choices.push(last['choice' + i] || '');
+  // 依 updatedAt（沒有的話退回 timestamp）由舊到新排序，就算 Sheet 裡的列被手動搬動過順序也不會出錯。
+  const timeOf = r => new Date(toIso_(r.updatedAt || r.timestamp)).getTime();
+  const sorted = rows.slice().sort((a, b) => timeOf(a) - timeOf(b));
+
+  const toRecord = r => {
+    const choices = [];
+    for (let i = 1; i <= REQUIRED_CHOICES; i++) choices.push(r['choice' + i] || '');
+    return { name: r.name, cls: r.cls, seat: r.seat, choices: choices, note: r.note || '', updatedAt: toIso_(r.updatedAt || r.timestamp) };
+  };
+
+  const records = sorted.map(toRecord); // 由舊到新，最後一筆是最新
+  const latest = records[records.length - 1];
+
   return {
     ok: true,
     found: true,
-    name: last.name,
-    cls: last.cls,
-    seat: last.seat,
-    choices: choices,
-    note: last.note || '',
-    updatedAt: toIso_(last.updatedAt)
+    // 保留舊版欄位（等於最新一筆），舊前端不用改也能繼續運作。
+    name: latest.name,
+    cls: latest.cls,
+    seat: latest.seat,
+    choices: latest.choices,
+    note: latest.note,
+    updatedAt: latest.updatedAt,
+    // 新增：由舊到新的完整送出歷史，前端可以列出所有紀錄、把最後一筆標成目前有效。
+    records: records,
+    count: records.length
   };
 }
 
-/* ---------- submit：送出／覆蓋志願（以學號為 key，重複送出視為更新） ---------- */
+/* ---------- submit：送出志願，每次都新增一列（不覆蓋舊資料，保留同一學號的完整送出歷史） ---------- */
 function submitResponse_(payload) {
   const level = payload.level;
   const sid = String(payload.sid || '').trim();
@@ -224,33 +267,23 @@ function submitResponse_(payload) {
     }
   }
 
+  // 每次送出都新增一列，不覆蓋舊資料——Responses 分頁保留同一學號每一次送出的完整歷史，
+  // 查詢時（queryResponse_）會把同一學號的所有列都列出來，最新一列視為目前有效的選填結果。
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
     const sh = sheet_(SHEETS.RESPONSES);
-    const values = sh.getDataRange().getValues();
-    const headers = values[0];
-    const sidCol = headers.indexOf('sid');
-    let targetRow = -1;
-    for (let i = 1; i < values.length; i++) {
-      if (String(values[i][sidCol]).trim() === sid) { targetRow = i + 1; break; }
-    }
+    const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
 
     const now = new Date();
     const rowObj = {
-      timestamp: (targetRow === -1) ? now : values[targetRow - 1][headers.indexOf('timestamp')],
-      sid: sid, level: level, cls: cls, seat: seat, name: name,
+      timestamp: now, sid: sid, level: level, cls: cls, seat: seat, name: name,
       note: note, updatedAt: now
     };
     choiceNames.forEach((n, i) => { rowObj['choice' + (i + 1)] = n; });
 
     const rowArr = headers.map(h => (h in rowObj) ? rowObj[h] : '');
-
-    if (targetRow === -1) {
-      sh.appendRow(rowArr);
-    } else {
-      sh.getRange(targetRow, 1, 1, headers.length).setValues([rowArr]);
-    }
+    sh.appendRow(rowArr);
   } finally {
     lock.releaseLock();
   }
