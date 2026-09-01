@@ -152,15 +152,14 @@ function normalizeIdLast4_(v) {
   return /^\d{1,4}$/.test(s) ? s.padStart(4, '0') : s;
 }
 
-/* ---------- lookup：輸入學號（＋可選的身分證後四碼）時，查這一個學生的班級／座號／姓名，
- * 有給身分證後四碼的話會比對做身分驗證。
- * 回傳四種狀態：
- *   found=false                     查無此學號 → 前端走手動填寫備援
- *   found=true, verified=false      有給身分證後四碼但不符 → 前端顯示錯誤，不給資料、不給手動備援
- *   found=true, skippedVerification 沒有給身分證後四碼 → 略過驗證，直接回傳資料
- *                                   （查詢我的選填紀錄由前端擋掉，不會用這個狀態；
- *                                   只有填寫志願／補選允許在沒有身分證後四碼的情況下繼續）
- *   found=true, verified=true       兩者都對 → 回傳學生資料 */
+/* ---------- lookup：輸入學號 + 身分證後四碼時，查這一個學生的班級／座號／姓名，
+ * 一定要兩者都對才會回傳資料做身分驗證。
+ * 回傳三種狀態：
+ *   found=false                查無此學號 → 前端走手動填寫備援
+ *   found=true, verified=false 學號存在但身分證後四碼不符（含沒給身分證後四碼）→
+ *                               前端顯示錯誤，不給資料；填寫志願／補選可以改點
+ *                               「沒有身分證字號？」走手動填寫，查詢模式沒有這個選項
+ *   found=true, verified=true  兩者都對 → 回傳學生資料 */
 function lookupStudent_(level, sid, idLast4) {
   if (!level) return { ok: false, error: '缺少 level 參數' };
   if (!sid) return { ok: false, error: '缺少學號' };
@@ -168,13 +167,9 @@ function lookupStudent_(level, sid, idLast4) {
   const student = getStudentsForLevel_(level).find(s => String(s['學號']) === target);
   if (!student) return { ok: true, found: false };
 
-  const actual = normalizeIdLast4_(idLast4);
-  if (!actual) {
-    return { ok: true, found: true, skippedVerification: true, 學號: student['學號'], 班級: student['班級'], 座號: student['座號'], 姓名: student['姓名'] };
-  }
-
   const expected = normalizeIdLast4_(student['身分證後四碼']);
-  if (!expected || expected !== actual) {
+  const actual = normalizeIdLast4_(idLast4);
+  if (!expected || !actual || expected !== actual) {
     return { ok: true, found: true, verified: false };
   }
   return { ok: true, found: true, verified: true, 學號: student['學號'], 班級: student['班級'], 座號: student['座號'], 姓名: student['姓名'] };

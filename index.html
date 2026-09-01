@@ -37,6 +37,8 @@
   .manual-hint { margin: 0 0 4px; font-size: 13.5px; color: var(--accent); font-weight: 700; }
   .optional-hint { font-weight: 400; font-size: 12.5px; color: var(--ink-soft); margin-left: 4px; }
   .not-verified-hint { font-size: 12.5px; color: var(--accent); }
+  .link-btn { display: block; margin: 6px 0 0; padding: 0; border: none; background: none; font-family: inherit; font-size: 13px; color: var(--brand-dark); text-decoration: underline; cursor: pointer; }
+  .link-btn:hover { color: var(--accent); }
   .mode-select { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .back-level { display: inline-block; font-size: 13px; color: var(--ink-soft); text-decoration: none; margin: -8px 0 14px; }
   .back-level:hover { color: var(--brand); text-decoration: underline; }
@@ -99,6 +101,8 @@
   .window-note { margin: -6px 0 18px; padding: 10px 14px; border-radius: 10px; font-size: 13.5px; }
   .window-note.before { background: #eef2ee; color: var(--brand-dark); border: 1px solid #c7d9cd; }
   .window-note.after { background: #fbeee8; color: var(--danger); border: 1px solid #e3b7a0; }
+  /* 補選的「尚未開放」提示刻意用紅字（跟一般選填窗口的綠色 before 不同），提醒這是還沒開放的狀態 */
+  #makeup-window-note.before { background: #fbeee8; color: var(--danger); border: 1px solid #e3b7a0; }
   .query-status { font-size: 14px; padding: 10px 0; }
   .query-loading { color: var(--ink-soft); font-size: 14px; }
   .query-record { margin: 8px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; }
@@ -191,6 +195,7 @@
 
     <label for="input-idlast4">身分證後四碼<span id="idlast4-optional-hint" class="optional-hint"></span></label>
     <input type="text" id="input-idlast4" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="請輸入身分證後四碼" autocomplete="off">
+    <button type="button" class="link-btn" id="btn-no-id">沒有身分證字號？改用查無學號方式手動填寫</button>
 
     <div class="identity-summary" id="identity-found"></div>
 
@@ -508,9 +513,9 @@ function applyWindowState() {
 
 /* ---------- 補選時間窗口（跟 SELECT_OPEN/CLOSE 分開的另一組時間，由 CONFIG.MAKEUP_OPEN/MAKEUP_CLOSE
    控制——這兩個值一開始是 index.html 內建的固定值，refreshLiveConfig() 抓到 Config 分頁的即時資料後
-   會覆蓋掉；DISABLE_TIME_WINDOW 測試開關同樣適用） ---------- */
+   會覆蓋掉。注意：補選刻意不吃 DISABLE_TIME_WINDOW 測試開關，一律照實際時間顯示反灰／紅字提醒，
+   避免測試階段誤以為補選已經開放） ---------- */
 function makeupWindowState() {
-  if (DISABLE_TIME_WINDOW) return 'open';
   if (!CONFIG || !CONFIG.MAKEUP_OPEN || !CONFIG.MAKEUP_CLOSE) return 'closed';
   const now = new Date();
   const open = new Date(CONFIG.MAKEUP_OPEN);
@@ -604,6 +609,7 @@ document.getElementById('btn-back-identity-2').addEventListener('click', backToM
 const inputSid = document.getElementById('input-sid');
 const inputIdLast4 = document.getElementById('input-idlast4');
 const idLast4OptionalHint = document.getElementById('idlast4-optional-hint');
+const btnNoId = document.getElementById('btn-no-id');
 const identityFound = document.getElementById('identity-found');
 const manualBox = document.getElementById('manual-box');
 const manualHint = document.getElementById('manual-hint');
@@ -612,8 +618,8 @@ const manName = document.getElementById('man-name');
 const btnIdentityNext = document.getElementById('btn-identity-next');
 
 let manualStudent = false;
-// 手動填寫／未驗證是因為哪種情況觸發：null＝一般（已驗證）／'not_found'＝查無此學號／
-// 'skipped'＝填寫模式下沒填身分證後四碼、略過驗證。送出時會依此在備註加註記，方便學務處事後核對。
+// 手動填寫是因為哪種情況觸發：null＝一般（已驗證）／'not_found'＝查無此學號／
+// 'no_id'＝學號存在但沒有身分證字號，改用手動填寫。送出時會依此在備註加註記，方便學務處事後核對。
 let idOverride = null;
 let sidLookupTimer = null;
 let sidLookupSeq = 0;
@@ -629,8 +635,10 @@ function resetIdentity() {
   idOverride = null;
   btnIdentityNext.disabled = true;
   state.student = null;
-  // 查詢模式一定要身分證後四碼；填寫/補選模式選填即可，在欄位旁標示清楚差異。
-  idLast4OptionalHint.textContent = state.mode === 'query' ? '（要繼續查詢紀錄必填）' : '（選填，不填也能繼續下一步）';
+  idLast4OptionalHint.textContent = '（必填）';
+  // 「沒有身分證字號？」只在填寫志願／補選才有意義（改用手動填寫送出）；
+  // 查詢我的選填紀錄一定要驗證身分證後四碼，不能用手動方式繞過，所以查詢模式不顯示這個連結。
+  btnNoId.classList.toggle('hidden', state.mode === 'query');
 }
 
 function refreshNextButton() {
@@ -658,11 +666,10 @@ function onIdentityInputChanged() {
   if (sidLookupTimer) clearTimeout(sidLookupTimer);
   if (!val) return;
 
-  // 只要有輸入學號，不管有沒有填身分證後四碼，都會查詢並顯示姓名。
-  // 身分證後四碼只影響「能不能繼續下一步」：
-  //   查詢我的選填紀錄一定要驗證通過才能繼續（避免任意輸入學號就查到別人的選填結果）；
-  //   填寫志願／補選則不填也能繼續下一步。
-  if (idLast4 && !/^\d{4}$/.test(idLast4)) {
+  // 身分證後四碼一律必填才會查詢比對；還沒填的話先安靜等待（不主動跳進手動模式，
+  // 避免使用者只是還沒打完就被誤判成「沒有」），真的沒有身分證字號要點旁邊的連結。
+  if (!idLast4) return;
+  if (!/^\d{4}$/.test(idLast4)) {
     identityFound.innerHTML = '身分證後四碼須為 4 碼數字';
     identityFound.classList.add('show', 'not-found');
     return;
@@ -675,8 +682,7 @@ function onIdentityInputChanged() {
   sidLookupTimer = setTimeout(async () => {
     let data;
     try {
-      const url = `${WEBAPP_URL}?action=lookup&level=${encodeURIComponent(currentLevel)}&sid=${encodeURIComponent(val)}`
-        + (idLast4 ? `&idLast4=${encodeURIComponent(idLast4)}` : '');
+      const url = `${WEBAPP_URL}?action=lookup&level=${encodeURIComponent(currentLevel)}&sid=${encodeURIComponent(val)}&idLast4=${encodeURIComponent(idLast4)}`;
       const res = await fetch(url);
       data = await res.json();
       if (!data.ok) throw new Error(data.error || '查詢失敗');
@@ -694,25 +700,9 @@ function onIdentityInputChanged() {
       identityFound.classList.add('show');
       identityFound.classList.remove('not-found');
       btnIdentityNext.disabled = false;
-    } else if (data.found && data.skippedVerification) {
-      // 沒填身分證後四碼：一律先把姓名帶出來讓學生確認找對人，
-      // 查詢模式仍然不能繼續（要驗證通過才能看選填紀錄），填寫/補選模式則可以直接繼續下一步。
-      const student = { 學號: data.學號, 班級: data.班級, 座號: data.座號, 姓名: data.姓名 };
-      const nameLine = `已找到：<b>${data.班級} ${data.座號}號 ${data.姓名}</b>（學號 ${data.學號}）`;
-      if (state.mode === 'query') {
-        identityFound.innerHTML = `${nameLine}<br><span class="not-verified-hint">請輸入身分證後四碼以查詢選填紀錄</span>`;
-        identityFound.classList.add('show');
-        identityFound.classList.remove('not-found');
-      } else {
-        idOverride = 'skipped';
-        state.student = student;
-        identityFound.innerHTML = `${nameLine}<br><span class="not-verified-hint">未填寫身分證後四碼，未驗證身分</span>`;
-        identityFound.classList.add('show');
-        identityFound.classList.remove('not-found');
-        btnIdentityNext.disabled = false;
-      }
     } else if (data.found && !data.verified) {
-      identityFound.innerHTML = `學號「${val}」的身分證後四碼不正確，請重新確認。`;
+      const noIdTip = state.mode === 'query' ? '' : '如果沒有身分證字號，請點下方連結改用手動填寫。';
+      identityFound.innerHTML = `學號「${val}」的身分證後四碼不正確，請重新確認。${noIdTip}`;
       identityFound.classList.add('show', 'not-found');
     } else {
       enterManualMode('not_found', `查無學號「${val}」，請在下方手動填寫資料`, '查無此學號，請手動填寫以下資料：');
@@ -720,7 +710,8 @@ function onIdentityInputChanged() {
   }, 350);
 }
 
-/** 切到手動填寫模式（查無學號）。reason 會記在 idOverride，送出時用來在備註加註記給學務處參考。 */
+/** 切到手動填寫模式（查無學號 / 沒有身分證字號）。reason 會記在 idOverride，
+ * 送出時用來在備註加註記給學務處參考。只有填寫志願／補選會用到（查詢模式沒有這個入口）。 */
 async function enterManualMode(reason, summaryHtml, hintText) {
   idOverride = reason;
   manualStudent = true;
@@ -732,6 +723,18 @@ async function enterManualMode(reason, summaryHtml, hintText) {
   refreshManualClasses(await getClasses(currentLevel));
   refreshNextButton();
 }
+
+btnNoId.addEventListener('click', () => {
+  const val = inputSid.value.trim();
+  if (!val) {
+    identityFound.innerHTML = '請先輸入學號，再點選「沒有身分證字號？」。';
+    identityFound.classList.add('show', 'not-found');
+    return;
+  }
+  if (sidLookupTimer) clearTimeout(sidLookupTimer);
+  sidLookupSeq++; // 讓任何還在跑的 lookup 結果作廢，避免回來時蓋掉手動模式畫面
+  enterManualMode('no_id', '', '沒有身分證字號，請改用下方資料手動確認身分（送出後將由學務處人工核對）：');
+});
 
 inputSid.addEventListener('input', onIdentityInputChanged);
 inputIdLast4.addEventListener('input', onIdentityInputChanged);
@@ -837,11 +840,11 @@ document.getElementById('btn-back-clubs').addEventListener('click', () => {
   setProgress(1);
 });
 
-// 手動填寫（查無學號）／略過身分證後四碼驗證，都沒有經過系統驗證，
+// 手動填寫（查無學號 / 沒有身分證字號）都沒有經過系統驗證，
 // 送出時在備註前面加註記，方便學務處事後核對這筆資料是不是本人填寫的。
 const ID_OVERRIDE_TAGS = {
   not_found: '[查無學號，手動確認身分]',
-  skipped: '[未填寫身分證後四碼，未驗證身分]'
+  no_id: '[沒有身分證字號，手動確認身分]'
 };
 
 document.getElementById('btn-submit').addEventListener('click', async () => {
