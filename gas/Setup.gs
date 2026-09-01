@@ -5,7 +5,10 @@
  */
 function initSheets() {
   const ss = ss_();
-  createSheetWithHeaders_(ss, SHEETS.STUDENTS, ['學號', '班級', '座號', '姓名', 'vh', 'level', '身分證後四碼']);
+  const studentHeaders = ['學號', '班級', '座號', '姓名', 'vh', 'level', '身分證後四碼'];
+  createSheetWithHeaders_(ss, SHEETS.STUDENTS, studentHeaders);
+  // 身分證後四碼可能 0 開頭，欄位一開始就設成純文字，避免手動輸入時前導 0 被 Sheets 自動吃掉
+  forceIdLast4ColumnAsText_(sheet_(SHEETS.STUDENTS), studentHeaders.indexOf('身分證後四碼') + 1);
   createSheetWithHeaders_(ss, SHEETS.CLUBS, ['id', 'level', 'name', 'teacher', 'cap', 'fee', 'location', 'intro']);
   createSheetWithHeaders_(ss, SHEETS.CONFIG, ['level', 'label', 'excludedNote', 'infoLink_href', 'infoLink_text', 'SELECT_OPEN', 'SELECT_CLOSE', 'MAKEUP_OPEN', 'MAKEUP_CLOSE']);
   createSheetWithHeaders_(ss, SHEETS.NOTICES, ['level', 'order', 'text']);
@@ -32,16 +35,29 @@ function createSheetWithHeaders_(ss, name, headers) {
  * 所以要用這支手動補上這欄。在 Apps Script 編輯器選這個函式執行一次即可，
  * 已經有這欄的話會直接跳過，重複執行也不會出問題。
  * 補上欄位後，記得到 Students 分頁把每位學生的身分證後四碼實際填進去，
- * 在填之前 lookup 會因為欄位是空的而一律判定「身分證後四碼不正確」。 */
+ * 在填之前 lookup 會因為欄位是空的而一律判定「身分證後四碼不正確」。
+ *
+ * ⚠️ 身分證後四碼可能是 0 開頭（例如 0023）。這裡會把整欄格式設成「純文字」，
+ * 這樣不管是這支函式自己寫入、或之後有人直接在 Sheets 手動輸入，開頭的 0
+ * 都不會被自動吃掉變成數字（Code.gs 的 lookup 比對也另外做了補零防呆，
+ * 但欄位本身設成文字格式才是根本解法，兩邊一起處理比較保險）。 */
 function addIdLast4ColumnToStudents() {
   const sh = sheet_(SHEETS.STUDENTS);
   const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-  if (headers.indexOf('身分證後四碼') !== -1) {
-    Logger.log('Students 分頁已經有「身分證後四碼」欄位，不用重複新增。');
+  const col = headers.indexOf('身分證後四碼');
+  if (col !== -1) {
+    forceIdLast4ColumnAsText_(sh, col + 1);
+    Logger.log('Students 分頁已經有「身分證後四碼」欄位，不用重複新增，但已確保欄位格式是純文字。');
     return;
   }
-  sh.getRange(1, headers.length + 1).setValue('身分證後四碼');
-  Logger.log('已在 Students 分頁新增「身分證後四碼」欄位，請記得手動填入每位學生的資料。');
+  const newCol = headers.length + 1;
+  sh.getRange(1, newCol).setValue('身分證後四碼');
+  forceIdLast4ColumnAsText_(sh, newCol);
+  Logger.log('已在 Students 分頁新增「身分證後四碼」欄位（格式為純文字），請記得手動填入每位學生的資料。');
+}
+
+function forceIdLast4ColumnAsText_(sh, colIndex) {
+  sh.getRange(1, colIndex, Math.max(sh.getMaxRows(), 2), 1).setNumberFormat('@');
 }
 
 /** 一次性遷移工具：既有的 Config 分頁是在加入「補選」時間窗之前建立的，
@@ -147,6 +163,40 @@ function updateStudentSeats_(seatMap) {
   });
 
   Logger.log('updateStudentSeats_：更新 %s 筆座號，找不到 %s 筆：%s', updated, notFound.length, notFound.join(', '));
+}
+
+/** 依學號更新既有學生列的「身分證後四碼」（用在名冊已經匯入、之後才補這欄身分驗證資料的情況）。
+ * idLast4Map 格式：{ 學號: '後四碼' }。找不到對應學號的列會略過並記錄在 Logger，不會新增列。
+ * 執行前要先確認 Students 分頁已經有「身分證後四碼」欄位（沒有的話先執行 addIdLast4ColumnToStudents()）。 */
+function updateStudentIdLast4_(idLast4Map) {
+  const sh = sheet_(SHEETS.STUDENTS);
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const sidCol = headers.indexOf('學號');
+  const idCol = headers.indexOf('身分證後四碼');
+  if (idCol === -1) {
+    throw new Error('Students 分頁還沒有「身分證後四碼」欄位，請先執行 addIdLast4ColumnToStudents()。');
+  }
+  forceIdLast4ColumnAsText_(sh, idCol + 1); // 保險起見每次都重新確保欄位是純文字格式，避免前導 0 被吃掉
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return;
+
+  const sids = sh.getRange(2, sidCol + 1, lastRow - 1, 1).getValues().map(r => String(r[0]).trim());
+
+  let updated = 0;
+  const notFound = [];
+  Object.keys(idLast4Map).forEach(sid => {
+    const rowIdx = sids.indexOf(String(sid).trim());
+    if (rowIdx === -1) {
+      notFound.push(sid);
+      return;
+    }
+    // 身分證後四碼可能有前導 0（例如 "0016"）：用 setValue() 寫入字串時 Sheets 不會自動轉成數字，
+    // 前導 0 不會被吃掉，所以這裡直接寫字串就好，不要自己加單引號（那樣反而會多一個字元進儲存格）。
+    sh.getRange(rowIdx + 2, idCol + 1).setValue(String(idLast4Map[sid]));
+    updated++;
+  });
+
+  Logger.log('updateStudentIdLast4_：更新 %s 筆身分證後四碼，找不到 %s 筆：%s', updated, notFound.length, notFound.join(', '));
 }
 
 function writeClubs_(clubs) {

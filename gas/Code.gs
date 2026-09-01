@@ -121,6 +121,16 @@ function classesForLevel_(level) {
   return { ok: true, level: level, classes: classes };
 }
 
+/** 身分證後四碼可能有前導 0（例如 0023）。Students 分頁的儲存格如果不是「純文字」格式，
+ * 手動輸入 0023 會被 Sheets 自動當數字存成 23，讀回來就變成 "23" 而不是 "0023"；
+ * 這裡統一補回 4 碼再比對，避免純粹因為儲存格格式問題就誤判驗證失敗。
+ * 只在「整段都是數字、且不超過 4 碼」時才補零，避免誤把格式明顯錯誤的資料也硬湊成 4 碼。 */
+function normalizeIdLast4_(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+  return /^\d{1,4}$/.test(s) ? s.padStart(4, '0') : s;
+}
+
 /* ---------- lookup：輸入學號 + 身分證後四碼時，查這一個學生的班級／座號／姓名，
  * 並比對身分證後四碼做身分驗證。
  * 回傳三種狀態：
@@ -134,8 +144,8 @@ function lookupStudent_(level, sid, idLast4) {
   const student = getStudentsForLevel_(level).find(s => String(s['學號']) === target);
   if (!student) return { ok: true, found: false };
 
-  const expected = String(student['身分證後四碼'] || '').trim();
-  const actual = String(idLast4 || '').trim();
+  const expected = normalizeIdLast4_(student['身分證後四碼']);
+  const actual = normalizeIdLast4_(idLast4);
   if (!expected || expected !== actual) {
     return { ok: true, found: true, verified: false };
   }
