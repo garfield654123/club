@@ -64,6 +64,33 @@ function writeStudents_(students) {
   Logger.log('writeStudents_：實際寫入 %s 筆', rows.length);
 }
 
+/** 依學號更新既有學生列的座號（用在名冊已經匯入、之後才補到座號資料的情況）。
+ * seatMap 格式：{ 學號: 座號 }。找不到對應學號的列會略過並記錄在 Logger，不會新增列。 */
+function updateStudentSeats_(seatMap) {
+  const sh = sheet_(SHEETS.STUDENTS);
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const sidCol = headers.indexOf('學號');
+  const seatCol = headers.indexOf('座號');
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return;
+
+  const sids = sh.getRange(2, sidCol + 1, lastRow - 1, 1).getValues().map(r => String(r[0]).trim());
+
+  let updated = 0;
+  const notFound = [];
+  Object.keys(seatMap).forEach(sid => {
+    const rowIdx = sids.indexOf(String(sid).trim());
+    if (rowIdx === -1) {
+      notFound.push(sid);
+      return;
+    }
+    sh.getRange(rowIdx + 2, seatCol + 1).setValue(seatMap[sid]);
+    updated++;
+  });
+
+  Logger.log('updateStudentSeats_：更新 %s 筆座號，找不到 %s 筆：%s', updated, notFound.length, notFound.join(', '));
+}
+
 function writeClubs_(clubs) {
   const sh = sheet_(SHEETS.CLUBS);
   const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
