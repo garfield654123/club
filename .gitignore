@@ -2,3 +2,7 @@
 # 不應該出現在這個公開的靜態前端 repo 裡。
 gas/SeedJunior.gs
 gas/Seed*.gs
+
+# 學校提供的原始名冊 Excel，內含身分證號等個資，同樣不應進入這個公開 repo。
+# 資料已萃取進上面的 gas/Seed*.gs（那些檔案也被排除），這裡的原始檔案留在本機即可。
+*.xlsx

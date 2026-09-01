@@ -5,17 +5,18 @@
 2. 開啟該試算表 →「擴充功能」→「Apps Script」，會開啟一個綁定此試算表的 Apps Script 專案。
 3. 把預設的 `Code.gs` 內容清空，貼上本資料夾的 `Code.gs`。
 4. 在專案裡新增檔案 `Setup.gs`，貼上本資料夾的 `Setup.gs`。
-5. 再新增一個檔案 `SeedJunior.gs`，貼上本資料夾的 `SeedJunior.gs`。
+5. 再新增一個檔案 `Seed.gs`，貼上本資料夾的 `Seed.gs`（國中部、高中部的完整名冊/社團/公告都整理在這一份檔案裡，不再拆成好幾個 Seed 檔）。
 
 ## 2. 建立分頁結構
 1. 在 Apps Script 編輯器上方的函式下拉選單選擇 `initSheets`，按執行（▶）。
 2. 第一次執行會跳出授權畫面，選你的 Google 帳號 →「進階」→「前往（專案名稱）」→ 允許。
 3. 執行完成後回到試算表，應該會看到 `Students / Clubs / Config / Notices / Responses` 五個分頁，且都已經有標題列。
 
-## 3. 匯入國中部資料（現成資料，一鍵匯入）
-1. 函式下拉選單改選 `seedJunior`，執行。
-2. 完成後檢查：`Students` 應有 431 筆、`Clubs` 應有 18 筆、`Config`/`Notices` 各多一列 `junior` 的資料。
-3. 高中部資料目前尚未提供，先執行 `seedSenior`（只會寫入一筆「尚未開放」的設定與公告，等之後有真正名冊/社團資料時，可以比照 `seedJunior` 的寫法自己加一個 `seedSenior` 版本，或直接在 `Students`/`Clubs`/`Config`/`Notices` 分頁手動貼資料，level 欄位填 `senior` 即可）。
+## 3. 匯入國中部／高中部資料（現成資料，一鍵匯入）
+1. 函式下拉選單改選 `seedJunior`，執行——會寫入國中部 596 筆學生名冊（七、八、九年級，體育班已排除）、18 筆社團備份、`Config`/`Notices` 各一列 `junior` 的資料。
+2. 函式下拉選單改選 `seedSenior`，執行——會寫入高中部 182 筆學生名冊（101/102/103/201/202/203/301/302/303 共 9 班，體育班已排除）與一筆「尚未開放」的 `Config` 設定（因為選填開放/截止時間還沒排定，之後排定後記得同步改 `Config` 分頁跟 `index.html` 的 `LEVEL_INFO.senior.SELECT_OPEN/SELECT_CLOSE`）。高中部的社團簡介已經是固定資料寫在 `index.html` 的 `LEVEL_INFO.senior.clubs`，不用再手動貼 `Clubs` 分頁。
+3. `writeStudents_` 會自動用「學號」去重（已存在的學號不會被重複寫入），所以這兩個函式就算不小心重跑，也不會把同一個學生寫成兩列。
+4. 高中部的「班級」欄位目前直接沿用學校原始班級碼（例如 `101班`／`201班`／`301班`），沒有座號資料所以座號留空；如果之後想改成中文年級（高一/高二/高三），要同時改 `gas/Seed.gs` 裡的 `students` 陣列或 Sheets 裡的 `Students` 分頁跟前端顯示邏輯。
 
 ## 4. 部署成 Web App（第一次）
 1. Apps Script 編輯器右上角「部署」→「新增部署作業」。

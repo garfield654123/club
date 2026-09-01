@@ -22,7 +22,9 @@ const CACHE_TTL_SECONDS = 300;
 
 const SHEETS = {
   STUDENTS: 'Students',
+  CLUBS: 'Clubs',
   CONFIG: 'Config',
+  NOTICES: 'Notices',
   RESPONSES: 'Responses'
 };
 

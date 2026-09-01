@@ -29,11 +29,39 @@ function createSheetWithHeaders_(ss, name, headers) {
 
 /* ---------- 給 Seed*.gs 呼叫的寫入輔助函式 ---------- */
 
+/** 寫入學生名冊，以「學號」為 key 檢查重複：已經在 Students 分頁裡的學號、
+ * 或本次傳入的陣列裡自己重複的學號，都只保留第一筆、其餘略過不寫入，
+ * 這樣同一個 seed 函式重跑第二次，也不會把同一位學生寫成兩列。 */
 function writeStudents_(students) {
   const sh = sheet_(SHEETS.STUDENTS);
   const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-  const rows = students.map(s => headers.map(h => s[h] !== undefined ? s[h] : ''));
+  const sidCol = headers.indexOf('學號');
+
+  const existing = new Set(
+    sh.getLastRow() > 1
+      ? sh.getRange(2, sidCol + 1, sh.getLastRow() - 1, 1).getValues().map(r => String(r[0]).trim())
+      : []
+  );
+
+  const seen = new Set();
+  const skipped = [];
+  const toWrite = students.filter(s => {
+    const sid = String(s['學號']).trim();
+    if (existing.has(sid) || seen.has(sid)) {
+      skipped.push(sid);
+      return false;
+    }
+    seen.add(sid);
+    return true;
+  });
+
+  if (skipped.length) {
+    Logger.log('writeStudents_：略過 %s 筆已存在的學號（不重複寫入）：%s', skipped.length, skipped.join(', '));
+  }
+
+  const rows = toWrite.map(s => headers.map(h => s[h] !== undefined ? s[h] : ''));
   if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, headers.length).setValues(rows);
+  Logger.log('writeStudents_：實際寫入 %s 筆', rows.length);
 }
 
 function writeClubs_(clubs) {
